@@ -25,6 +25,19 @@
 
 namespace json
 {
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wweak-vtables"
+#endif
+    class parsing_error : public std::runtime_error
+    {
+     public:
+        using std::runtime_error::runtime_error;
+    };
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif
+
     namespace u
     {
         template <std::size_t Skip, std::size_t... Ns, typename... Ts> inline auto tuple_tail(std::index_sequence<Ns...>, std::tuple<Ts...>& t)
@@ -275,8 +288,7 @@ namespace json
             parser(std::begin(source), std::end(source));
         }
         catch (axe::failure<char>& err) {
-            std::cerr << "Parsing failed: " << err.message() << std::endl;
-            throw std::runtime_error("parsing failed: " + err.message());
+            throw parsing_error(err.message());
         }
     }
 
