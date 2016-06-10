@@ -5,6 +5,7 @@
 #pragma once
 
 #include <iostream>
+#include <iomanip>
 #include <limits>
 #include <string>
 #include <vector>
@@ -364,7 +365,14 @@ namespace json
             bool insert_comma;
         };
 
-        template <typename T> inline auto operator + (output& o, const T& value) -> decltype(std::to_string(value), std::declval<output&>())
+        template <typename T> typename std::enable_if<std::is_floating_point<T>::value, output&>::type operator + (output& o, T value)
+        {
+            std::ostringstream s;
+            s << std::setprecision(std::numeric_limits<T>::max_digits10) << value;
+            return o + s.str().c_str();
+        }
+
+        template <typename T> typename std::enable_if<std::is_integral<T>::value, output&>::type operator + (output& o, T value)
         {
             return o + std::to_string(value).c_str();
         }
@@ -448,6 +456,13 @@ namespace json
             return o + std::make_tuple(std::get<0>(value), std::get<1>(value)) + u::tuple_tail<2u>(value);
         }
     }
+
+    template <typename T> inline std::string dump(const T& a)
+    {
+        auto o = json::w::output();
+        return o + a;
+    }
+
 }
 
 // ----------------------------------------------------------------------
@@ -455,12 +470,6 @@ namespace json
 template <typename T> inline auto operator + (json::w::output& o, const T& value) -> decltype(json_fields(std::declval<T&>()), std::declval<json::w::output&>())
 {
     return o + json::w::object_begin() + json_fields(const_cast<T&>(value)) + json::w::object_end();
-}
-
-template <typename T> inline std::string to_json(const T& a)
-{
-    auto o = json::w::output();
-    return o + a;
 }
 
 // ----------------------------------------------------------------------
