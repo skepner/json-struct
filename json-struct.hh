@@ -17,6 +17,7 @@
 #ifdef __clang__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wglobal-constructors"
+#pragma GCC diagnostic ignored "-Wweak-vtables"
 #endif
 
 // ----------------------------------------------------------------------
@@ -25,18 +26,11 @@
 
 namespace json
 {
-#ifdef __clang__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wweak-vtables"
-#endif
     class parsing_error : public std::runtime_error
     {
      public:
         using std::runtime_error::runtime_error;
     };
-#ifdef __clang__
-#pragma GCC diagnostic pop
-#endif
 
     namespace u
     {
@@ -68,18 +62,63 @@ namespace json
     {
         typedef std::string::iterator iterator;
 
+        class failure : public std::exception
+        {
+         public:
+            virtual ~failure() noexcept {}
+            template<class T> failure(T&& aMsg, iterator i1, iterator i2) : msg(std::forward<T>(aMsg)), text_start(i1), text(i1, std::min(i1 + 40, i2)) {}
+            failure(const failure&) = default;
+            virtual const char* what() const noexcept { return msg.c_str(); }
+            std::string message(std::string::iterator buffer_start) const { return msg + " at offset " + std::to_string(text_start - buffer_start) + " when parsing '" + text + "'"; }
+
+         private:
+            std::string msg;
+            iterator text_start;
+            std::string text;
+        };
+
+        template<typename R1, typename R2> class r_atomic_t AXE_RULE
+        {
+          public:
+            r_atomic_t(R1&& r1, R2&& r2) : r1_(std::forward<R1>(r1)), r2_(std::forward<R2>(r2)) {}
+
+            inline axe::result<iterator> operator()(iterator i1, iterator i2) const
+            {
+                auto match = r1_(i1, i2);
+                if (match.matched) {   // if r1_ matched r2_ must match too
+                    match = r2_(match.position, i2);
+                    if (!match.matched)
+                        throw failure(std::string("matching failed for [") + axe::get_name(r1_) + "] followed by [" + axe::get_name(r2_) + "]", match.position, i2);
+                      // throw failure(std::string("R1 >= R2 rule failed with\n   R1: ") + axe::get_name(r1_) + "\n   R2: " + axe::get_name(r2_), match.position, i2);
+                    return axe::make_result(true, match.position);
+                }
+                return match;
+            }
+
+          private:
+            R1 r1_;
+            R2 r2_;
+        };
+
+        template<typename R1, typename R2> inline r_atomic_t<typename std::enable_if<AXE_IS_RULE(R1), R1>::type, typename std::enable_if<AXE_IS_RULE(R2), R2>::type> operator >= (R1&& r1, R2&& r2)
+        {
+            return r_atomic_t<R1, R2>(std::forward<R1>(r1), std::forward<R2>(r2));
+        }
+
+          // ----------------------------------------------------------------------
+
         const auto space = axe::r_any(" \t\n\r");
         const auto object_begin = axe::r_named(*space & axe::r_lit('{') & *space, "object_begin");
-        const auto object_end = *space & axe::r_lit('}') & *space;
-        const auto array_begin = axe::r_named(*space & axe::r_lit('[') & *space, "array_begin");
-        const auto array_end = *space & axe::r_lit(']') & *space;
+        const auto object_end = axe::r_named(*space & axe::r_lit('}') & *space, "object end");
+        const auto array_begin = axe::r_named(*space & axe::r_lit('[') & *space, "array begin");
+        const auto array_end = axe::r_named(*space & axe::r_lit(']') & *space, "array end");
         const auto comma = axe::r_named(*space & axe::r_lit(',') & *space, "comma");
         const auto doublequotes = axe::r_named(axe::r_lit('"'), "doublequotes");
-        const auto colon = *space & axe::r_lit(':') & *space;
+        const auto colon = axe::r_named(*space & axe::r_lit(':') & *space, "colon");
         const auto string_content = *("\\\"" | (axe::r_any() - axe::r_any("\"\n\r")));
-        inline auto skey(const char* key) { return (doublequotes & key) > doublequotes > colon; };
+        inline auto skey(const char* key) { return axe::r_named(axe::r_named(doublequotes & key, "object key") >= doublequotes, "object key + doublequotes") >= colon; };
 
-        // ----------------------------------------------------------------------
+          // ----------------------------------------------------------------------
 
         inline iterator s_to_number(iterator i1, iterator i2, int& target) { std::size_t pos = 0; target = std::stoi(std::string(i1, i2), &pos, 0); return i1 + static_cast<std::string::difference_type>(pos); }
         inline iterator s_to_number(iterator i1, iterator i2, long& target) { std::size_t pos = 0; target = std::stol(std::string(i1, i2), &pos, 0); return i1 + static_cast<std::string::difference_type>(pos); }
@@ -118,13 +157,13 @@ namespace json
 
         inline auto parser_value(std::string& target)
         {
-            return doublequotes > (string_content >> target) > doublequotes;
+            return doublequotes >= (string_content >> target) >= doublequotes;
         }
 
           // ignored comment field
         inline auto parser_value(comment&)
         {
-            return doublequotes > string_content > doublequotes;
+            return doublequotes >= string_content >= doublequotes;
         }
 
         class parser_bool_t AXE_RULE
@@ -164,7 +203,7 @@ namespace json
 
         template <typename T> inline auto parser_object_item(const char* key, T& value)
         {
-            return skey(key) > parser_value(value);
+            return skey(key) >= parser_value(value);
         }
 
         template <typename T> inline auto make_items_parser_tuple(std::tuple<const char*, T*>&& a)
@@ -189,7 +228,7 @@ namespace json
             inline axe::result<iterator> operator()(iterator i1, iterator i2) const
             {
                 auto item = make_items_parser_tuple(json_fields(m));
-                return (object_begin > ~( item & *(comma > item) ) > object_end)(i1, i2);
+                return (object_begin >= ~( item & *(comma >= item) ) >= object_end)(i1, i2);
             }
           private:
             T& m;
@@ -216,7 +255,7 @@ namespace json
                 auto clear_target = axe::e_ref([this](auto, auto) { m.clear(); });
                 auto insert_item = axe::e_ref([this](auto, auto) { add(); });
                 auto item = parser_value(keep) >> insert_item;
-                return ((array_begin >> clear_target) > ~( item & *(comma > item) ) > array_end)(i1, i2);
+                return ((array_begin >> clear_target) >= ~( item & *(comma >= item) ) >= array_end)(i1, i2);
             }
           protected:
             T& m;
@@ -225,7 +264,7 @@ namespace json
 
         template <typename T> class parser_set_t : public parser_list_t<T>
         {
-          public:
+         public:
             inline parser_set_t(T& v) : parser_list_t<T>(v) {}
             virtual inline void add() const { this->m.insert(this->keep); }
         };
@@ -237,7 +276,7 @@ namespace json
 
         template <typename T> class parser_array_t : public parser_list_t<T>
         {
-          public:
+         public:
             inline parser_array_t(T& v) : parser_list_t<T>(v) {}
             virtual inline void add() const { this->m.push_back(this->keep); }
         };
@@ -253,7 +292,7 @@ namespace json
 
         template <typename T> inline auto parser_map_item(std::string& key, T& value)
         {
-            return doublequotes > (string_content >> key) > doublequotes > colon > parser_value(value);
+            return doublequotes >= (string_content >> key) >= doublequotes >= colon >= parser_value(value);
         }
 
         template <typename T> class parser_map_t AXE_RULE
@@ -265,7 +304,7 @@ namespace json
                 auto clear_target = axe::e_ref([this](auto, auto) { m.clear(); });
                 auto insert_item = axe::e_ref([this](auto, auto) { return m.insert(std::make_pair(keep_key, keep_value)); });
                 auto item = parser_map_item(keep_key, keep_value) >> insert_item;
-                return ((object_begin >> clear_target) > ~( item & *(comma > item) ) > object_end)(i1, i2);
+                return ((object_begin >> clear_target) >= ~( item & *(comma >= item) ) >= object_end)(i1, i2);
             }
           private:
             T& m;
@@ -286,6 +325,9 @@ namespace json
         auto parser = r::parser_value(target);
         try {
             parser(std::begin(source), std::end(source));
+        }
+        catch (r::failure& err) {
+            throw parsing_error(err.message(std::begin(source)));
         }
         catch (axe::failure<char>& err) {
             throw parsing_error(err.message());

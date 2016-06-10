@@ -148,7 +148,7 @@ void test_parsing_failure()
         json::parse(source_err, a1);
     }
     catch (json::parsing_error& err) {
-        std::cerr << err.what() << std::endl;
+        std::cerr << "json:0: error: "<< err.what() << std::endl;
     }
 
 } // test_parsing_failure
