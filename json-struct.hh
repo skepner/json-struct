@@ -350,19 +350,59 @@ namespace json
         {
          public:
             inline output() : insert_comma(false) {}
+            inline output(const output&) = default;
+            inline virtual ~output() = default;
             inline operator std::string () const { return buffer; }
-            inline output& operator + (const char* s) { buffer.append(s); return *this; }
-            inline output& operator + (char c) { buffer.append(1, c); return *this; }
-            inline output& operator + (bool b) { if (b) buffer.append("true"); else buffer.append("false"); return *this; }
-            inline output& operator + (object_begin) { buffer.append(1, '{'); insert_comma = false; return *this; }
-            inline output& operator + (object_end) { buffer.append(1, '}'); insert_comma = true; return *this; }
-            inline output& operator + (array_begin) { buffer.append(1, '['); insert_comma = false; return *this; }
-            inline output& operator + (array_end) { buffer.append(1, ']'); insert_comma = true; return *this; }
-            inline output& operator + (comma) { if (insert_comma) buffer.append(", "); insert_comma = true; return *this; }
-            inline output& operator + (colon) { buffer.append(": "); return *this; }
-         private:
+            virtual inline output& operator + (const char* s) { buffer.append(s); return *this; }
+            virtual inline output& operator + (std::string s) { buffer.append(1, '"'); buffer.append(s); buffer.append(1, '"'); return *this; }
+            virtual inline output& operator + (comment s) { return operator+(static_cast<std::string>(s)); }
+            virtual inline output& operator + (char c) { buffer.append(1, c); return *this; }
+            virtual inline output& operator + (bool b) { if (b) buffer.append("true"); else buffer.append("false"); return *this; }
+            virtual inline output& operator + (object_begin) { buffer.append(1, '{'); insert_comma = false; return *this; }
+            virtual inline output& operator + (object_end) { buffer.append(1, '}'); insert_comma = true; return *this; }
+            virtual inline output& operator + (array_begin) { buffer.append(1, '['); insert_comma = false; return *this; }
+            virtual inline output& operator + (array_end) { buffer.append(1, ']'); insert_comma = true; return *this; }
+            virtual inline output& operator + (comma) { if (insert_comma) buffer.append(", "); insert_comma = true; return *this; }
+            virtual inline output& operator + (colon) { buffer.append(": "); return *this; }
+         protected:
             std::string buffer;
             bool insert_comma;
+        };
+
+        class output_compact : public output
+        {
+         public:
+            inline output_compact() : output() {}
+            // virtual inline output& operator + (const char* s) { buffer.append(s); return *this; }
+            // virtual inline output& operator + (char c) { buffer.append(1, c); return *this; }
+            // virtual inline output& operator + (bool b) { if (b) buffer.append("true"); else buffer.append("false"); return *this; }
+            // virtual inline output& operator + (object_begin) { buffer.append(1, '{'); insert_comma = false; return *this; }
+            // virtual inline output& operator + (object_end) { buffer.append(1, '}'); insert_comma = true; return *this; }
+            // virtual inline output& operator + (array_begin) { buffer.append(1, '['); insert_comma = false; return *this; }
+            // virtual inline output& operator + (array_end) { buffer.append(1, ']'); insert_comma = true; return *this; }
+            // virtual inline output& operator + (comma) { if (insert_comma) buffer.append(", "); insert_comma = true; return *this; }
+            // virtual inline output& operator + (colon) { buffer.append(": "); return *this; }
+        };
+
+        class output_pretty : public output
+        {
+         public:
+            inline output_pretty(size_t aIndent) : output(), indent(aIndent), prefix(1, '\n'), insert_prefix(false) {}
+              // virtual inline output& operator + (const char* s) { add_prefix(); return output::operator+(s); }
+            virtual inline output& operator + (std::string s) { add_prefix(); return output::operator+(s); }
+            virtual inline output& operator + (object_begin) { add_prefix(); extend_prefix(); buffer.append(1, '{'); insert_comma = false; return *this; }
+            virtual inline output& operator + (object_end) { shrink_prefix(); add_prefix(); buffer.append(1, '}'); insert_comma = true; return *this; }
+            virtual inline output& operator + (array_begin) { add_prefix(); extend_prefix(); buffer.append(1, '['); insert_comma = false; return *this; }
+            virtual inline output& operator + (array_end) { shrink_prefix(); add_prefix(); buffer.append(1, ']'); insert_comma = true; return *this; }
+            virtual inline output& operator + (comma) { if (insert_comma) buffer.append(1, ','); add_prefix(); insert_comma = true; return *this; }
+            virtual inline output& operator + (colon c) { insert_prefix = false; return output::operator+(c); }
+         private:
+            size_t indent;
+            std::string prefix;
+            bool insert_prefix;
+            inline void add_prefix() { if (insert_prefix) buffer.append(prefix); insert_prefix = true; }
+            inline void extend_prefix() { prefix.append(indent, ' '); }
+            inline void shrink_prefix() { prefix.erase(prefix.size() - indent); }
         };
 
         template <typename T> typename std::enable_if<std::is_floating_point<T>::value, output&>::type operator + (output& o, T value)
@@ -377,15 +417,10 @@ namespace json
             return o + std::to_string(value).c_str();
         }
 
-        inline output& operator + (output& o, std::string value)
-        {
-            return o + '"' + value.c_str() + '"';
-        }
-
-        inline output& operator + (output& o, comment value)
-        {
-            return o + static_cast<std::string>(value);
-        }
+        // inline output& operator + (output& o, comment value)
+        // {
+        //     return o + static_cast<std::string>(value);
+        // }
 
           // ----------------------------------------------------------------------
           // vector, list
@@ -457,10 +492,16 @@ namespace json
         }
     }
 
-    template <typename T> inline std::string dump(const T& a)
+    template <typename T> inline std::string dump(const T& a, int indent = 0)
     {
-        auto o = json::w::output();
-        return o + a;
+        if (indent <= 0) {
+            auto o = json::w::output_compact();
+            return o + a;
+        }
+        else {
+            auto o = json::w::output_pretty(static_cast<size_t>(indent));
+            return o + a;
+        }
     }
 
 }

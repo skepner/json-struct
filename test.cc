@@ -105,7 +105,7 @@ int main()
 void test_simple()
 {
     A a1;
-    const auto dump1 = json::dump(a1);
+    const auto dump1 = json::dump(a1, 2);
     std::cout << "a1: " << dump1 << std::endl;
     A a2;
     json::parse(dump1, a2);
@@ -114,7 +114,7 @@ void test_simple()
     const char* source_a = R"({"vi": [121, 122, 124], "msi": {"seven": 7, "six": 6}, "ld": [7.7e10, 8.8e-10, 8.8, 9.9e33], "ss": ["a", "b"], "i": 1967, "f": 20.16e15, "s": "doetzchen", "b": true, "?": "ignored comment field"})";
     A a3;
     json::parse(source_a, a3);
-    const auto dump3 = json::dump(a3);
+    const auto dump3 = json::dump(a3, 2);
     std::cout << "source_a: " << source_a << std::endl;
     std::cout << "a3:       " << dump3 << std::endl;
       //assert(std::string(source_a) == dump3);
