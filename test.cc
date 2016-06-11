@@ -104,7 +104,7 @@ int main()
 
 void test_simple()
 {
-    int indent = 0;
+    int indent = 2;
     A a1;
     std::cout << "a1: " << json::dump(a1, indent) << std::endl;
     a1.vi.push_back(93);
@@ -137,7 +137,7 @@ void test_simple()
 
 void test_nested()
 {
-    int indent = 0;
+    int indent = 2;
     B b1;
     b1.s = "b1";
     b1.a.s = "b1.a";
