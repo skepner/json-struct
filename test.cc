@@ -104,9 +104,22 @@ int main()
 
 void test_simple()
 {
+    int indent = 0;
     A a1;
-    const auto dump1 = json::dump(a1, 2);
+    std::cout << "a1: " << json::dump(a1, indent) << std::endl;
+    a1.vi.push_back(93);
+    a1.ld.push_back(9.3);
+    a1.ss.insert("neun");
+    a1.msi["elf"] = 11;
+    std::cout << "a1: " << json::dump(a1, indent) << std::endl;
+    a1.vi.push_back(94);
+    a1.ld.push_back(9.4);
+    a1.ss.insert("zehn");
+    a1.msi["zwölf"] = 12;
+
+    const auto dump1 = json::dump(a1, indent);
     std::cout << "a1: " << dump1 << std::endl;
+
     A a2;
     json::parse(dump1, a2);
     assert(a1 == a2);
@@ -114,7 +127,7 @@ void test_simple()
     const char* source_a = R"({"vi": [121, 122, 124], "msi": {"seven": 7, "six": 6}, "ld": [7.7e10, 8.8e-10, 8.8, 9.9e33], "ss": ["a", "b"], "i": 1967, "f": 20.16e15, "s": "doetzchen", "b": true, "?": "ignored comment field"})";
     A a3;
     json::parse(source_a, a3);
-    const auto dump3 = json::dump(a3, 2);
+    const auto dump3 = json::dump(a3, indent);
     std::cout << "source_a: " << source_a << std::endl;
     std::cout << "a3:       " << dump3 << std::endl;
       //assert(std::string(source_a) == dump3);
@@ -124,13 +137,14 @@ void test_simple()
 
 void test_nested()
 {
+    int indent = 0;
     B b1;
     b1.s = "b1";
     b1.a.s = "b1.a";
     b1.a.i = 202;
     b1.a.f = 202.202;
     b1.va.emplace_back(505, 505.505, "b1.va.0", true);
-    const auto dump1 = json::dump(b1);
+    const auto dump1 = json::dump(b1, indent);
     std::cout << "b1: " << dump1 << std::endl;
     B b2;
     json::parse(dump1, b2);
