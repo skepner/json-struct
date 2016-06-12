@@ -16,6 +16,13 @@ template<typename T> inline typename std::enable_if<!std::numeric_limits<T>::is_
 
 // ----------------------------------------------------------------------
 
+static void test_simple();
+static void test_nested();
+static void test_parsing_failure();
+static void test_recursive_struct();
+
+// ----------------------------------------------------------------------
+
 class A
 {
  public:
@@ -38,6 +45,7 @@ class A
             msi.clear();
         }
 
+ private:
     int i;
     double f;
     std::string s;
@@ -46,12 +54,15 @@ class A
     std::list<double> ld;
     std::set<std::string> ss;
     std::map<std::string, int> msi;
-};
 
-inline auto json_fields(A& a)
-{
-    return std::make_tuple("vi", &a.vi, "msi", &a.msi, "ld", &a.ld, "ss", &a.ss, "i", &a.i, "f", &a.f, "s", &a.s, "b", &a.b, "?", json::comment("ignored comment field"));
-}
+    friend inline auto json_fields(A& a)
+        {
+            return std::make_tuple("vi", &a.vi, "msi", &a.msi, "ld", &a.ld, "ss", &a.ss, "i", &a.i, "f", &a.f, "s", &a.s, "b", &a.b, "?", json::comment("ignored comment field"));
+        }
+
+    friend void test_simple();
+    friend void test_nested();
+};
 
 // ----------------------------------------------------------------------
 
@@ -83,13 +94,6 @@ inline auto json_fields(B& b)
 {
     return std::make_tuple("a", &b.a, "la", &b.la, "s", &b.s, "va", &b.va);
 }
-
-// ----------------------------------------------------------------------
-
-static void test_simple();
-static void test_nested();
-static void test_parsing_failure();
-static void test_recursive_struct();
 
 // ----------------------------------------------------------------------
 
