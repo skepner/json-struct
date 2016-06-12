@@ -96,7 +96,7 @@ should contain json::field() call, e.g.
 
     inline auto json_fields(A& a)
     {
-        return std::make_tuple("f", json::field(std::bind(&F::getter, &a.f), std::bind(&F::setter, &a.f, std::placeholders::_1)));
+        return std::make_tuple("f", json::field(&a.f, &F::getter, &F::setter));
     }
 
 ## TODO

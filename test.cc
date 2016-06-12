@@ -1,6 +1,5 @@
 #include <cmath>
 #include <ctime>
-#include <functional>
 
 #include "json-struct.hh"
 
@@ -240,6 +239,18 @@ class GS_Field
             }
         }
 
+    inline std::map<std::string, int> split() const
+        {
+            return {{"year", mTime.tm_year + 1900}, {"month", mTime.tm_mon + 1}, {"day", mTime.tm_mday}};
+        }
+
+    inline void combine(const std::map<std::string, int>& source)
+        {
+            try { mTime.tm_year = source.at("year") - 1900; } catch (std::out_of_range&) {}
+            try { mTime.tm_mon  = source.at("month") - 1; } catch (std::out_of_range&) {}
+            try { mTime.tm_mday = source.at("day"); } catch (std::out_of_range&) {}
+        }
+
  private:
     std::tm mTime;
 };
@@ -247,12 +258,18 @@ class GS_Field
 class GS
 {
  public:
+    double f;
     int i;
     GS_Field time;
+    GS_Field date;
 
     friend inline auto json_fields(GS& gs)
         {
-            return std::make_tuple("i", &gs.i, "time", json::field(std::bind(&GS_Field::display, &gs.time), std::bind(&GS_Field::parse, &gs.time, std::placeholders::_1)));
+            return std::make_tuple("f", &gs.f
+                                   , "time", json::field(&gs.time, &GS_Field::display, &GS_Field::parse)
+                                   , "date", json::field(&gs.date, &GS_Field::split, &GS_Field::combine)
+                                   , "i", &gs.i
+                                   );
         }
 
 };
@@ -262,6 +279,7 @@ void test_field_getter_setter()
     GS gs1;
     gs1.i = 111;
     gs1.time.parse("2016-06-12");
+    gs1.date.parse("2016-03-22");
     std::string dump1 = json::dump(gs1, 2);
     std::cout << "gs1: " << dump1 << std::endl;
     GS gs2;

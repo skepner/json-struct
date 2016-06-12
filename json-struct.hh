@@ -12,6 +12,7 @@
 #include <list>
 #include <set>
 #include <map>
+#include <functional>
 
 #include "axe.h"
 
@@ -62,10 +63,10 @@ namespace json
     template <typename G, typename S> class field_t
     {
      public:
+        typedef typename G::result_type value_type;
         inline field_t(G&& aG, S&& aS) : mG(aG), mS(aS) {}
 
-        inline typename G::result_type get() const { return mG(); }
-          //template <typename V> inline void set(const V& v) const { mS(v); }
+        inline value_type get() const { return mG(); }
         inline S& setter() { return mS; }
 
      private:
@@ -73,7 +74,12 @@ namespace json
         S mS;
     };
 
-    template <typename G, typename S> inline auto field(G&& aG, S&& aS) { return field_t<G, S>(std::forward<G>(aG), std::forward<S>(aS)); }
+    template <typename G, typename S> inline auto _field_t_make(G&& aG, S&& aS) { return field_t<G, S>(std::forward<G>(aG), std::forward<S>(aS)); }
+
+    template <typename T, typename GF, typename SF> inline auto field(T* field, GF aGetter, SF aSetter)
+    {
+        return _field_t_make(std::bind(aGetter, field), std::bind(aSetter, field, std::placeholders::_1));
+    }
 
       // ----------------------------------------------------------------------
 
@@ -138,6 +144,18 @@ namespace json
         inline auto skey(const char* key) { return axe::r_named(axe::r_named(doublequotes & key, "object key") >= doublequotes, "object key + doublequotes") >= colon; };
 
           // ----------------------------------------------------------------------
+          // forward decalrations
+
+        template <typename T> class parser_object_t;
+        template <typename T> auto parser_value(T& value) -> decltype(json_fields(value), parser_object_t<T>(value));
+        template <typename T> class parser_array_t;
+        template <typename T> auto parser_value(T& value) -> decltype(std::declval<T>().emplace_back(), parser_array_t<T>(value));
+        template <typename T> class parser_set_t;
+        template <typename T> auto parser_value(std::set<T>& value) -> decltype(parser_set_t<std::set<T>>(value));
+        template <typename T> class parser_map_t;
+        template <typename T> auto parser_value(std::map<std::string, T>& value) -> decltype(parser_map_t<std::map<std::string, T>>(value));
+
+          // ----------------------------------------------------------------------
 
         inline iterator s_to_number(iterator i1, iterator i2, int& target) { std::size_t pos = 0; target = std::stoi(std::string(i1, i2), &pos, 0); return i1 + static_cast<std::string::difference_type>(pos); }
         inline iterator s_to_number(iterator i1, iterator i2, long& target) { std::size_t pos = 0; target = std::stol(std::string(i1, i2), &pos, 0); return i1 + static_cast<std::string::difference_type>(pos); }
@@ -185,26 +203,6 @@ namespace json
             return doublequotes >= string_content >= doublequotes;
         }
 
-        template <typename S, typename V> class parser_field_t AXE_RULE
-        {
-          public:
-            inline parser_field_t(S& aS) : mS(aS) {}
-            inline axe::result<iterator> operator()(iterator i1, iterator i2) const
-            {
-                V v;
-                auto r = parser_value(v)(i1, i2);
-                mS(v);
-                return r;
-            }
-          private:
-            S& mS;
-        };
-
-        template <typename G, typename S> inline auto parser_value(field_t<G, S>& a)
-        {
-            return parser_field_t<S, std::string>(a.setter());
-        }
-
         class parser_bool_t AXE_RULE
         {
           public:
@@ -225,16 +223,29 @@ namespace json
         }
 
           // ----------------------------------------------------------------------
-          // forward decalrations
+          // field_t
+          // ----------------------------------------------------------------------
 
-        template <typename T> class parser_object_t;
-        template <typename T> auto parser_value(T& value) -> decltype(json_fields(value), parser_object_t<T>(value));
-        template <typename T> class parser_array_t;
-        template <typename T> auto parser_value(T& value) -> decltype(std::declval<T>().emplace_back(), parser_array_t<T>(value));
-        template <typename T> class parser_set_t;
-        template <typename T> auto parser_value(std::set<T>& value) -> decltype(parser_set_t<std::set<T>>(value));
-        template <typename T> class parser_map_t;
-        template <typename T> auto parser_value(std::map<std::string, T>& value) -> decltype(parser_map_t<std::map<std::string, T>>(value));
+        template <typename S, typename V> class parser_field_t AXE_RULE
+        {
+          public:
+            inline parser_field_t(S& aS) : mS(aS) {}
+            inline axe::result<iterator> operator()(iterator i1, iterator i2) const
+            {
+                V v;
+                auto r = parser_value(v)(i1, i2);
+                mS(v);
+                return r;
+            }
+          private:
+            S mS;
+        };
+
+        template <typename G, typename S> inline auto parser_value(field_t<G, S>& a)
+        {
+            typedef typename field_t<G, S>::value_type value_type;
+            return parser_field_t<S, value_type>(a.setter());
+        }
 
           // ----------------------------------------------------------------------
           // object -> struct
@@ -245,9 +256,14 @@ namespace json
             return skey(key) >= parser_value(value);
         }
 
+        template <typename T> inline auto parser_object_item(const char* key, T* value)
+        {
+            return skey(key) >= parser_value(*value);
+        }
+
         template <typename T> inline auto make_items_parser_tuple(std::tuple<const char*, T*>&& a)
         {
-            return parser_object_item(std::get<0>(a), *std::get<1>(a));
+            return parser_object_item(std::get<0>(a), std::get<1>(a)); // *
         }
 
         inline auto make_items_parser_tuple(std::tuple<const char*, comment>&& a)
@@ -255,14 +271,9 @@ namespace json
             return parser_object_item(std::get<0>(a), std::get<1>(a));
         }
 
-        template <typename G, typename S> inline auto make_items_parser_tuple(std::tuple<const char*, field_t<G, S>>&& a)
-        {
-            return parser_object_item(std::get<0>(a), std::get<1>(a));
-        }
-
         template <typename... Ts> inline auto make_items_parser_tuple(std::tuple<Ts...>&& a)
         {
-            return parser_object_item(std::get<0>(a), *std::get<1>(a)) | make_items_parser_tuple(u::tuple_tail<2>(a));
+            return parser_object_item(std::get<0>(a), std::get<1>(a)) | make_items_parser_tuple(u::tuple_tail<2>(a));
         }
 
         template <typename T> class parser_object_t AXE_RULE
