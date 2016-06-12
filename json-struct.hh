@@ -49,17 +49,6 @@ namespace json
 
       // ----------------------------------------------------------------------
 
-    class comment
-    {
-     public:
-        inline comment(std::string a) : m(a) {}
-        inline operator std::string() const { return m; }
-     private:
-        std::string m;
-    };
-
-      // ----------------------------------------------------------------------
-
     template <typename G, typename S> class field_t
     {
      public:
@@ -79,6 +68,24 @@ namespace json
     template <typename T, typename GF, typename SF> inline auto field(T* field, GF aGetter, SF aSetter)
     {
         return _field_t_make(std::bind(aGetter, field), std::bind(aSetter, field, std::placeholders::_1));
+    }
+
+      // ----------------------------------------------------------------------
+
+    class _comment_getter
+    {
+     public:
+        inline _comment_getter(std::string aMessage) : m(aMessage) {}
+        inline std::string operator()() const { return m; }
+        typedef std::string result_type;
+     private:
+        std::string m;
+    };
+
+    inline auto comment(std::string aMessage)
+    {
+          // has to use _comment_getter instead of lambda to provide result_type typedef
+        return _field_t_make(_comment_getter(aMessage), [](std::string) {});
     }
 
       // ----------------------------------------------------------------------
@@ -197,12 +204,6 @@ namespace json
             return doublequotes >= (string_content >> target) >= doublequotes;
         }
 
-          // ignored comment field
-        inline auto parser_value(comment&)
-        {
-            return doublequotes >= string_content >= doublequotes;
-        }
-
         class parser_bool_t AXE_RULE
         {
           public:
@@ -266,7 +267,8 @@ namespace json
             return parser_object_item(std::get<0>(a), std::get<1>(a)); // *
         }
 
-        inline auto make_items_parser_tuple(std::tuple<const char*, comment>&& a)
+          // Necessary for tuple<const char *, json::field_t<json::_comment_getter, json::_comment_setter>>
+        template <typename T> inline auto make_items_parser_tuple(std::tuple<const char*, T>&& a)
         {
             return parser_object_item(std::get<0>(a), std::get<1>(a));
         }
@@ -463,11 +465,6 @@ namespace json
             template <typename T> inline output& append(std::tuple<const char*, T*>&& val)
                 {
                     return append(std::get<0>(val), *std::get<1>(val));
-                }
-
-            inline output& append(std::tuple<const char*, comment>&& val)
-                {
-                    return append(std::get<0>(val), std::get<1>(val));
                 }
 
             template <typename G, typename S> inline output& append(std::tuple<const char*, field_t<G, S>>&& val)
