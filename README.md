@@ -133,8 +133,3 @@ should contain json::field() call, e.g.
     {
         return std::make_tuple("f", json::output_if(&a.f));
     }
-
-## TODO
-
-- recursive classes (e.g. tree)
-- pretty json output
