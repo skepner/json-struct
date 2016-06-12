@@ -65,6 +65,8 @@ namespace json
         inline field_t(G&& aG, S&& aS) : mG(aG), mS(aS) {}
 
         inline typename G::result_type get() const { return mG(); }
+          //template <typename V> inline void set(const V& v) const { mS(v); }
+        inline S& setter() { return mS; }
 
      private:
         G mG;
@@ -183,6 +185,26 @@ namespace json
             return doublequotes >= string_content >= doublequotes;
         }
 
+        template <typename S, typename V> class parser_field_t AXE_RULE
+        {
+          public:
+            inline parser_field_t(S& aS) : mS(aS) {}
+            inline axe::result<iterator> operator()(iterator i1, iterator i2) const
+            {
+                V v;
+                auto r = parser_value(v)(i1, i2);
+                mS(v);
+                return r;
+            }
+          private:
+            S& mS;
+        };
+
+        template <typename G, typename S> inline auto parser_value(field_t<G, S>& a)
+        {
+            return parser_field_t<S, std::string>(a.setter());
+        }
+
         class parser_bool_t AXE_RULE
         {
           public:
@@ -229,6 +251,11 @@ namespace json
         }
 
         inline auto make_items_parser_tuple(std::tuple<const char*, comment>&& a)
+        {
+            return parser_object_item(std::get<0>(a), std::get<1>(a));
+        }
+
+        template <typename G, typename S> inline auto make_items_parser_tuple(std::tuple<const char*, field_t<G, S>>&& a)
         {
             return parser_object_item(std::get<0>(a), std::get<1>(a));
         }
@@ -524,7 +551,7 @@ namespace json
 
             template <typename G, typename S> inline output& append(const field_t<G, S>& val)
                 {
-                    append(val.get());
+                    return append(val.get());
                 }
         };
 

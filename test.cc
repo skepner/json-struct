@@ -264,9 +264,9 @@ void test_field_getter_setter()
     gs1.time.parse("2016-06-12");
     std::string dump1 = json::dump(gs1, 2);
     std::cout << "gs1: " << dump1 << std::endl;
-    // GS gs2;
-    // json::parse(dump1, gs2);
-    // std::cout << "gs2: " << json::dump(gs2, 0) << std::endl;
+    GS gs2;
+    json::parse(dump1, gs2);
+    std::cout << "gs2: " << json::dump(gs2, 0) << std::endl;
 
     std::cout << std::endl << std::endl;
 

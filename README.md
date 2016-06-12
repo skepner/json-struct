@@ -76,6 +76,29 @@ classes, e.g.
         return std::make_tuple("f", &b.f, "a", &b.a, "va", &b.va);
     }
 
+## Field with getter and setter
+
+If a field cannot be serialized/deserialized directly but provides
+getter (for serialization) and setter (for deserialization) member
+functions instead, then json_fields() for a class having that field
+should contain json::field() call, e.g.
+
+    struct F
+    {
+        std::string getter() { return "value-of-F"; }
+        void setter(std::string) { /* e.g. value ignored */ }
+    }
+
+    struct A
+    {
+        F f;
+    };
+
+    inline auto json_fields(A& a)
+    {
+        return std::make_tuple("f", json::field(std::bind(&F::getter, &a.f), std::bind(&F::setter, &a.f, std::placeholders::_1)));
+    }
+
 ## TODO
 
 - recursive classes (e.g. tree)
