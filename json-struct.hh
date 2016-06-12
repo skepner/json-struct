@@ -59,6 +59,22 @@ namespace json
 
       // ----------------------------------------------------------------------
 
+    template <typename G, typename S> class field_t
+    {
+     public:
+        inline field_t(G&& aG, S&& aS) : mG(aG), mS(aS) {}
+
+        inline typename G::result_type get() const { return mG(); }
+
+     private:
+        G mG;
+        S mS;
+    };
+
+    template <typename G, typename S> inline auto field(G&& aG, S&& aS) { return field_t<G, S>(std::forward<G>(aG), std::forward<S>(aS)); }
+
+      // ----------------------------------------------------------------------
+
     namespace r
     {
         typedef std::string::iterator iterator;
@@ -416,6 +432,11 @@ namespace json
                     return append(std::get<0>(val), std::get<1>(val));
                 }
 
+            template <typename G, typename S> inline output& append(std::tuple<const char*, field_t<G, S>>&& val)
+                {
+                    return append(std::get<0>(val), std::get<1>(val));
+                }
+
             template <typename... Ts> inline output& append(std::tuple<Ts...>&& val)
                 {
                     append(std::make_tuple(std::get<0>(val), std::get<1>(val)));
@@ -499,6 +520,12 @@ namespace json
                     return wmap<T>(val).append_to(*this);
                 }
 
+              // ---- field_t<G, S> ------------------------------------------------------------------
+
+            template <typename G, typename S> inline output& append(const field_t<G, S>& val)
+                {
+                    append(val.get());
+                }
         };
 
           // ----------------------------------------------------------------------

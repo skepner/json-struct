@@ -1,4 +1,6 @@
 #include <cmath>
+#include <ctime>
+#include <functional>
 
 #include "json-struct.hh"
 
@@ -20,6 +22,7 @@ static void test_simple();
 static void test_nested();
 static void test_parsing_failure();
 static void test_recursive_struct();
+static void test_field_getter_setter();
 
 // ----------------------------------------------------------------------
 
@@ -99,10 +102,13 @@ inline auto json_fields(B& b)
 
 int main()
 {
+    test_field_getter_setter();
+
     test_simple();
     test_nested();
     test_parsing_failure();
     test_recursive_struct();
+
     return 0;
 }
 
@@ -197,5 +203,73 @@ void test_recursive_struct()
     std::cout << "r: " << json::dump(r, 2) << std::endl;
 
 } // test_recursive_struct
+
+// ----------------------------------------------------------------------
+
+class GS_Field
+{
+ public:
+    inline GS_Field() { reset(); }
+    inline void reset()
+        {
+            mTime.tm_sec = mTime.tm_min = mTime.tm_hour = 0;
+            mTime.tm_year = mTime.tm_mon = 0;
+            mTime.tm_mday = 1;
+        }
+
+    inline std::string display() const
+        {
+            char buf[16];
+            std::strftime(buf, sizeof(buf), "%Y-%m-%d", &mTime);
+            return buf;
+        }
+
+    inline void parse(std::string aText)
+        {
+            if (aText.size() == 10) {
+                strptime(aText.c_str(), "%Y-%m-%d", &mTime);
+            }
+            else if (aText.size() == 7) {
+                strptime(aText.c_str(), "%Y-%m", &mTime);
+            }
+            else if (aText.size() == 0) {
+                reset();
+            }
+            else {
+                throw std::runtime_error(std::string("cannot parse date from ") + aText);
+            }
+        }
+
+ private:
+    std::tm mTime;
+};
+
+class GS
+{
+ public:
+    int i;
+    GS_Field time;
+
+    friend inline auto json_fields(GS& gs)
+        {
+            return std::make_tuple("i", &gs.i, "time", json::field(std::bind(&GS_Field::display, &gs.time), std::bind(&GS_Field::parse, &gs.time, std::placeholders::_1)));
+        }
+
+};
+
+void test_field_getter_setter()
+{
+    GS gs1;
+    gs1.i = 111;
+    gs1.time.parse("2016-06-12");
+    std::string dump1 = json::dump(gs1, 2);
+    std::cout << "gs1: " << dump1 << std::endl;
+    // GS gs2;
+    // json::parse(dump1, gs2);
+    // std::cout << "gs2: " << json::dump(gs2, 0) << std::endl;
+
+    std::cout << std::endl << std::endl;
+
+} // test_field_getter_setter
 
 // ----------------------------------------------------------------------
