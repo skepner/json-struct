@@ -89,6 +89,7 @@ inline auto json_fields(B& b)
 static void test_simple();
 static void test_nested();
 static void test_parsing_failure();
+static void test_recursive_struct();
 
 // ----------------------------------------------------------------------
 
@@ -97,6 +98,7 @@ int main()
     test_simple();
     test_nested();
     test_parsing_failure();
+    test_recursive_struct();
     return 0;
 }
 
@@ -166,5 +168,30 @@ void test_parsing_failure()
     }
 
 } // test_parsing_failure
+
+// ----------------------------------------------------------------------
+
+class R
+{
+ public:
+
+    int i;
+    std::vector<R> sub;
+
+    friend inline auto json_fields(R& r)
+        {
+            return std::make_tuple("i", &r.i, "sub", &r.sub);
+        }
+
+};
+
+void test_recursive_struct()
+{
+    const char* source_r = R"({"i": 1, "sub": [{"i": 11}, {"i": 12, "sub": [{"i": 121}]}]})";
+    R r;
+    json::parse(source_r, r);
+    std::cout << "r: " << json::dump(r, 2) << std::endl;
+
+} // test_recursive_struct
 
 // ----------------------------------------------------------------------
