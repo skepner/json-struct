@@ -99,6 +99,41 @@ should contain json::field() call, e.g.
         return std::make_tuple("f", json::field(&a.f, &F::getter, &F::setter));
     }
 
+## Field that just serialized and ignored on deserialization
+
+    struct A
+    {
+        int not_read;
+    };
+
+    inline auto json_fields(A& a)
+    {
+        return std::make_tuple("f", json::field_output_only(&a.f));
+    }
+
+## Field appearing in the output only if bool(field) is true
+
+    struct F
+    {
+        std::string s;
+        operator bool() const { return !s.empty(); }
+    }
+
+    inline auto json_fields(F& f)
+    {
+        return std::make_tuple("s", &f.s);
+    }
+
+    struct A
+    {
+        F f;
+    };
+
+    inline auto json_fields(A& a)
+    {
+        return std::make_tuple("f", json::output_if(&a.f));
+    }
+
 ## TODO
 
 - recursive classes (e.g. tree)

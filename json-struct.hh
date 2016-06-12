@@ -24,8 +24,6 @@
 
 // ----------------------------------------------------------------------
 
-// template <typename T> inline auto json_fields(T&);
-
 namespace json
 {
     class parsing_error : public std::runtime_error
@@ -68,6 +66,44 @@ namespace json
     template <typename T, typename GF, typename SF> inline auto field(T* field, GF aGetter, SF aSetter)
     {
         return _field_t_make(std::bind(aGetter, field), std::bind(aSetter, field, std::placeholders::_1));
+    }
+
+    template <typename T, typename GF> inline auto field_output_only(T* field, GF aGetter)
+    {
+        typedef decltype(std::bind(aGetter, field)()) value_type;
+        return _field_t_make(std::bind(aGetter, field), [](const value_type&) {});
+    }
+
+      // ----------------------------------------------------------------------
+
+    template <typename T> class _output_setter
+    {
+     public:
+        inline _output_setter(T* aField) : m(aField) {}
+        inline void operator()(T& val) const { *m = val; }
+     private:
+        T* m;
+    };
+
+    class _no_value : public std::exception
+    {
+     public:
+        using std::exception::exception;
+    };
+
+    template <typename T> class _output_if_getter
+    {
+     public:
+        inline _output_if_getter(T* aField) : m(aField) {}
+        inline T& operator()() const { if (!*m) throw _no_value(); return *m; }
+        typedef T result_type;
+     private:
+        T* m;
+    };
+
+    template <typename T> inline auto output_if(T* field)
+    {
+        return _field_t_make(_output_if_getter<T>(field), _output_setter<T>(field)); // lambda does not work in place of _output_setter
     }
 
       // ----------------------------------------------------------------------
@@ -414,6 +450,11 @@ namespace json
             return '"' + val + '"';
         }
 
+        inline std::string value_to_string(bool val)
+        {
+            return val ? "true" : "false";
+        }
+
           // ----------------------------------------------------------------------
 
         class output
@@ -557,9 +598,14 @@ namespace json
 
               // ---- field_t<G, S> ------------------------------------------------------------------
 
-            template <typename G, typename S> inline output& append(const field_t<G, S>& val)
+            template <typename G, typename S> inline output& append(const char* key, const field_t<G, S>& val)
                 {
-                    return append(val.get());
+                    try {
+                        return append(key, val.get()); // val.get() may throw _no_value
+                    }
+                    catch (_no_value&) {
+                        return *this; // avoid writing key/value pair
+                    }
                 }
         };
 

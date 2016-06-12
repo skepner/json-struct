@@ -260,14 +260,18 @@ class GS
  public:
     double f;
     int i;
+    bool b;
     GS_Field time;
     GS_Field date;
+    GS_Field no_read;
 
     friend inline auto json_fields(GS& gs)
         {
             return std::make_tuple("f", &gs.f
                                    , "time", json::field(&gs.time, &GS_Field::display, &GS_Field::parse)
                                    , "date", json::field(&gs.date, &GS_Field::split, &GS_Field::combine)
+                                   , "no_read", json::field_output_only(&gs.no_read, &GS_Field::split)
+                                   , "b", json::output_if(&gs.b)
                                    , "i", &gs.i
                                    );
         }
@@ -285,6 +289,12 @@ void test_field_getter_setter()
     GS gs2;
     json::parse(dump1, gs2);
     std::cout << "gs2: " << json::dump(gs2, 0) << std::endl;
+
+    std::string source_gs3 = R"({"f": 0, "time": "2016-06-12", "date": {"day": 22, "month": 4, "year": 2000}, "no_read": {"day": 2, "month": 2, "year": 1901}, "b": true, "i": 111})";
+    GS gs3;
+    json::parse(source_gs3, gs3);
+    std::cout << "s 3: " << source_gs3 << std::endl;
+    std::cout << "gs3: " << json::dump(gs3, 0) << std::endl;
 
     std::cout << std::endl << std::endl;
 
