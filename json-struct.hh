@@ -47,81 +47,206 @@ namespace json
 
       // ----------------------------------------------------------------------
 
-    template <typename G, typename S> class field_t
-    {
-     public:
-        typedef typename G::result_type value_type;
-        inline field_t(G&& aG, S&& aS) : mG(aG), mS(aS) {}
-
-        inline value_type get() const { return mG(); }
-        inline S& setter() { return mS; }
-
-     private:
-        G mG;
-        S mS;
-    };
-
-    template <typename G, typename S> inline auto _field_t_make(G&& aG, S&& aS) { return field_t<G, S>(std::forward<G>(aG), std::forward<S>(aS)); }
-
-    template <typename T, typename GF, typename SF> inline auto field(T* field, GF aGetter, SF aSetter)
-    {
-        return _field_t_make(std::bind(aGetter, field), std::bind(aSetter, field, std::placeholders::_1));
-    }
-
-    template <typename T, typename GF> inline auto field_output_only(T* field, GF aGetter)
-    {
-        typedef decltype(std::bind(aGetter, field)()) value_type;
-        return _field_t_make(std::bind(aGetter, field), [](const value_type&) {});
-    }
-
-      // ----------------------------------------------------------------------
-
-    template <typename T> class _output_setter
-    {
-     public:
-        inline _output_setter(T* aField) : m(aField) {}
-        inline void operator()(T& val) const { *m = val; }
-     private:
-        T* m;
-    };
-
     class _no_value : public std::exception
     {
      public:
         using std::exception::exception;
     };
 
-    template <typename T> class _output_if_getter
+    enum output_only_t { output_only };
+    enum output_only_if_true_t { output_only_if_true };
+    enum output_only_if_not_empty_t { output_only_if_not_empty };
+    enum output_if_true_t { output_if_true };
+    enum output_if_not_empty_t { output_if_not_empty };
+
+      // ----------------------------------------------------------------------
+
+    template <typename G, typename S, typename P> class field_t
     {
      public:
-        inline _output_if_getter(T* aField) : m(aField) {}
-        inline T& operator()() const { if (!*m) throw _no_value(); return *m; }
-        typedef T result_type;
+        typedef typename G::result_type value_type;
+        inline field_t(G&& aG, S&& aS, P&& aPredicate) : mG(aG), mS(aS), mPredicate(aPredicate) {}
+
+        inline value_type get() const { if (!mPredicate()) throw _no_value(); return mG(); }
+        inline S& setter() { return mS; }
+
      private:
-        T* m;
+        G mG;
+        S mS;
+        P mPredicate;
     };
 
-    template <typename T> inline auto output_if(T* field)
+      // --------------------
+
+    inline bool _predicate_always() { return true; }
+
+    template <typename T> class _predicate_if_true
     {
-        return _field_t_make(_output_if_getter<T>(field), _output_setter<T>(field)); // lambda does not work in place of _output_setter
+     public:
+        inline _predicate_if_true(const T* aField) : mField(aField) {}
+        inline bool operator()() const { return bool(*mField); }
+     private:
+        const T* mField;
+    };
+
+    template <typename T> class _predicate_if_not_empty
+    {
+     public:
+        inline _predicate_if_not_empty(const T* aField) : mField(aField) {}
+        inline bool operator()() const { return !mField->empty(); }
+     private:
+        const T* mField;
+    };
+
+      // --------------------
+
+    template <typename T> class _default_getter
+    {
+     public:
+        typedef T result_type;
+        inline _default_getter(const T* aField) : mField(aField) {}
+        inline const T& operator()() const { return *mField; }
+     private:
+        const T* mField;
+    };
+
+    template <typename T> class _default_setter
+    {
+     public:
+        inline _default_setter(T* aField) : mField(aField) {}
+        inline void operator()(const T& val) const { *mField = val; }
+     private:
+        T* mField;
+    };
+
+    template <typename T, typename Arg = T> class _no_setter
+    {
+     public:
+        inline _no_setter(T* = nullptr) {}
+        inline void operator()(const Arg&) const {}
+    };
+
+    template <typename G, typename S, typename P> inline auto _field_t_make(G&& aG, S&& aS, P&& aPredicate)
+    {
+        return field_t<G, S, P>(std::forward<G>(aG), std::forward<S>(aS), std::forward<P>(aPredicate));
     }
 
       // ----------------------------------------------------------------------
 
-    class _comment_getter
+      // default getter and setter
+    template <typename T> inline auto field(T* field)
+    {
+        return _field_t_make(_default_getter<T>(field), _default_setter<T>(field), &_predicate_always);
+    }
+
+      // default getter and setter, output if true
+    template <typename T> inline auto field(T* field, output_if_true_t)
+    {
+        return _field_t_make(_default_getter<T>(field), _default_setter<T>(field), _predicate_if_true<T>(field));
+    }
+
+      // default getter and setter, output if not empty
+    template <typename T> inline auto field(T* field, output_if_not_empty_t)
+    {
+        return _field_t_make(_default_getter<T>(field), _default_setter<T>(field), _predicate_if_not_empty<T>(field));
+    }
+
+      // --------------------
+
+      // default getter, no setter - output only
+    template <typename T> inline auto field(T* field, output_only_t)
+    {
+        return _field_t_make(_default_getter<T>(field), _no_setter<T>(field), &_predicate_always);
+    }
+
+      // default getter, no setter - output only if true
+    template <typename T> inline auto field(T* field, output_only_if_true_t)
+    {
+        return _field_t_make(_default_getter<T>(field), _no_setter<T>(field), _predicate_if_true<T>(field));
+    }
+
+      // default getter, no setter - output only if not empty
+    template <typename T> inline auto field(T* field, output_only_if_not_empty_t)
+    {
+        return _field_t_make(_default_getter<T>(field), _no_setter<T>(field), _predicate_if_not_empty<T>(field));
+    }
+
+      // --------------------
+
+      // provided getter, no setter - output only
+    template <typename T, typename GF> inline auto field(T* field, GF aGetter)
+    {
+        typedef decltype(std::bind(aGetter, field)()) value_type;
+        return _field_t_make(std::bind(aGetter, field), _no_setter<T, value_type>(field), &_predicate_always);
+    }
+
+      // provided getter, no setter - output only if true
+    template <typename T, typename GF> inline auto field(T* field, GF aGetter, output_only_if_true_t)
+    {
+        typedef decltype(std::bind(aGetter, field)()) value_type;
+        return _field_t_make(std::bind(aGetter, field), _no_setter<T, value_type>(field), _predicate_if_true<T>(field));
+    }
+
+      // same as above, another option type for convenience
+    template <typename T, typename GF> inline auto field(T* field, GF aGetter, output_if_true_t)
+    {
+        return field(field, aGetter, output_only_if_true);
+    }
+
+      // provided getter, no setter - output only if not empty
+    template <typename T, typename GF> inline auto field(T* field, GF aGetter, output_only_if_not_empty_t)
+    {
+        typedef decltype(std::bind(aGetter, field)()) value_type;
+        return _field_t_make(std::bind(aGetter, field), _no_setter<T, value_type>(field), _predicate_if_not_empty<T>(field));
+    }
+
+      // same as above, another option type for convenience
+    template <typename T, typename GF> inline auto field(T* field, GF aGetter, output_if_not_empty_t)
+    {
+        return field(field, aGetter, output_only_if_not_empty);
+    }
+
+      // --------------------
+
+      // provided getter and setter
+    template <typename T, typename GF, typename SF> inline auto field(T* field, GF aGetter, SF aSetter)
+    {
+        return _field_t_make(std::bind(aGetter, field), std::bind(aSetter, field, std::placeholders::_1), &_predicate_always);
+    }
+
+      // provided getter and setter, output if true
+    template <typename T, typename GF, typename SF> inline auto field(T* field, GF aGetter, SF aSetter, output_if_true_t)
+    {
+        return _field_t_make(std::bind(aGetter, field), std::bind(aSetter, field, std::placeholders::_1), _predicate_if_true<T>(field));
+    }
+
+      // provided getter and setter, output if not empty
+    template <typename T, typename GF, typename SF> inline auto field(T* field, GF aGetter, SF aSetter, output_if_not_empty_t)
+    {
+        return _field_t_make(std::bind(aGetter, field), std::bind(aSetter, field, std::placeholders::_1), _predicate_if_not_empty<T>(field));
+    }
+
+      // ----------------------------------------------------------------------
+
+    template <typename T> class _const_getter
     {
      public:
-        inline _comment_getter(std::string aMessage) : m(aMessage) {}
-        inline std::string operator()() const { return m; }
-        typedef std::string result_type;
+        typedef T result_type;
+          //inline _const_getter(const T& aData) : m(aData) {}
+        inline _const_getter(T&& aData) : m(std::move(aData)) {}
+        inline const T& operator()() const { return m; }
      private:
-        std::string m;
+        T m;
     };
 
-    inline auto comment(std::string aMessage)
+    template <typename T> inline auto comment(T&& aComment)
     {
-          // has to use _comment_getter instead of lambda to provide result_type typedef
-        return _field_t_make(_comment_getter(aMessage), [](std::string) {});
+        return _field_t_make(_const_getter<T>(std::forward<T>(aComment)), _no_setter<T>(), &_predicate_always);
+    }
+
+    inline auto comment(const char* aComment)
+    {
+        return _field_t_make(_const_getter<std::string>(std::string(aComment)), _no_setter<std::string>(), &_predicate_always);
     }
 
       // ----------------------------------------------------------------------
@@ -278,9 +403,9 @@ namespace json
             S mS;
         };
 
-        template <typename G, typename S> inline auto parser_value(field_t<G, S>& a)
+        template <typename G, typename S, typename P> inline auto parser_value(field_t<G, S, P>& a)
         {
-            typedef typename field_t<G, S>::value_type value_type;
+            typedef typename field_t<G, S, P>::value_type value_type;
             return parser_field_t<S, value_type>(a.setter());
         }
 
@@ -303,7 +428,7 @@ namespace json
             return parser_object_item(std::get<0>(a), std::get<1>(a)); // *
         }
 
-          // Necessary for tuple<const char *, json::field_t<json::_comment_getter, json::_comment_setter>>
+          // Necessary for tuple<const char *, json::field_t<>>
         template <typename T> inline auto make_items_parser_tuple(std::tuple<const char*, T>&& a)
         {
             return parser_object_item(std::get<0>(a), std::get<1>(a));
@@ -508,7 +633,7 @@ namespace json
                     return append(std::get<0>(val), *std::get<1>(val));
                 }
 
-            template <typename G, typename S> inline output& append(std::tuple<const char*, field_t<G, S>>&& val)
+            template <typename G, typename S, typename P> inline output& append(std::tuple<const char*, field_t<G, S, P>>&& val)
                 {
                     return append(std::get<0>(val), std::get<1>(val));
                 }
@@ -596,9 +721,9 @@ namespace json
                     return wmap<T>(val).append_to(*this);
                 }
 
-              // ---- field_t<G, S> ------------------------------------------------------------------
+              // ---- field_t<G, S, P> ------------------------------------------------------------------
 
-            template <typename G, typename S> inline output& append(const char* key, const field_t<G, S>& val)
+            template <typename G, typename S, typename P> inline output& append(const char* key, const field_t<G, S, P>& val)
                 {
                     try {
                         return append(key, val.get()); // val.get() may throw _no_value

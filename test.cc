@@ -261,6 +261,8 @@ class GS
     double f;
     int i;
     bool b;
+    std::vector<int> vi;
+    std::vector<int> vi_no_read;
     GS_Field time;
     GS_Field date;
     GS_Field no_read;
@@ -270,9 +272,11 @@ class GS
             return std::make_tuple("f", &gs.f
                                    , "time", json::field(&gs.time, &GS_Field::display, &GS_Field::parse)
                                    , "date", json::field(&gs.date, &GS_Field::split, &GS_Field::combine)
-                                   , "no_read", json::field_output_only(&gs.no_read, &GS_Field::split)
-                                   , "b", json::output_if(&gs.b)
+                                   , "no_read", json::field(&gs.no_read, &GS_Field::split)
+                                   , "b", json::field(&gs.b, json::output_if_true) // json::output_if(&gs.b)
                                    , "i", &gs.i
+                                   , "vi_no_read", json::field(&gs.vi_no_read, json::output_only_if_not_empty)
+                                   , "vi", json::field(&gs.vi, json::output_if_not_empty)
                                    );
         }
 
@@ -290,7 +294,7 @@ void test_field_getter_setter()
     json::parse(dump1, gs2);
     std::cout << "gs2: " << json::dump(gs2, 0) << std::endl;
 
-    std::string source_gs3 = R"({"f": 0, "time": "2016-06-12", "date": {"day": 22, "month": 4, "year": 2000}, "no_read": {"day": 2, "month": 2, "year": 1901}, "b": true, "i": 111})";
+    std::string source_gs3 = R"({"f": 0, "time": "2016-06-12", "date": {"day": 22, "month": 4, "year": 2000}, "no_read": {"day": 2, "month": 2, "year": 1901}, "b": true, "i": 111, "vi": [56, 57], "vi_no_read": [321]})";
     GS gs3;
     json::parse(source_gs3, gs3);
     std::cout << "s 3: " << source_gs3 << std::endl;
