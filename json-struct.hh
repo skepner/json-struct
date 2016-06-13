@@ -314,10 +314,21 @@ namespace json
           // ----------------------------------------------------------------------
           // forward decalrations
 
+        template <typename> struct _sfinae_helper { class type {}; }; // http://stackoverflow.com/questions/13786888/check-if-member-exists-using-enable-if
+        template <typename T> using _json_fields_defined = typename _sfinae_helper<decltype(json_fields(std::declval<T&>()))>::type;
+        template <typename T> using _emplace_back_defined = typename _sfinae_helper<decltype(std::declval<T>().emplace_back())>::type;
+
+          // https://jguegant.github.io/blogs/tech/sfinae-introduction.html
+        template <typename T, typename = int> struct is_json_fields_defined : public std::false_type {};
+        template <typename T> struct is_json_fields_defined<T, decltype(json_fields(std::declval<T&>()))> : public std::true_type {};
+
         template <typename T> class parser_object_t;
-        template <typename T> auto parser_value(T& value) -> decltype(json_fields(value), parser_object_t<T>(value));
+          // template <typename T> auto parser_value(T& value) -> decltype(json_fields(value), parser_object_t<T>(value));
+          // template <typename T, typename _sfinae_helper<decltype(json_fields(std::declval<T&>()))>::type = 0> parser_object_t<T> parser_value(T& value);
+        template <typename T, typename _ = _json_fields_defined<T>> parser_object_t<T> parser_value(T& value);
         template <typename T> class parser_array_t;
-        template <typename T> auto parser_value(T& value) -> decltype(std::declval<T>().emplace_back(), parser_array_t<T>(value));
+          // template <typename T> auto parser_value(T& value) -> decltype(std::declval<T>().emplace_back(), parser_array_t<T>(value));
+        template <typename T, typename _ = _emplace_back_defined<T>> parser_array_t<T> parser_value(T& value);
         template <typename T> class parser_set_t;
         template <typename T> auto parser_value(std::set<T>& value) -> decltype(parser_set_t<std::set<T>>(value));
         template <typename T> class parser_map_t;
@@ -452,7 +463,9 @@ namespace json
             T& m;
         };
 
-        template <typename T> auto parser_value(T& value) -> decltype(json_fields(value), parser_object_t<T>(value))
+          // template <typename T> auto parser_value(T& value) -> decltype(json_fields(value), parser_object_t<T>(value))
+          // template <typename T, typename _sfinae_helper<decltype(json_fields(std::declval<T&>()))>::type> parser_object_t<T> parser_value(T& value)
+        template <typename T, typename> parser_object_t<T> parser_value(T& value)
         {
             return parser_object_t<T>(value);
         }
@@ -499,7 +512,8 @@ namespace json
             virtual inline void add() const { this->m.push_back(this->keep); }
         };
 
-        template <typename T> auto parser_value(T& value) -> decltype(std::declval<T>().emplace_back(), parser_array_t<T>(value))
+          // template <typename T> auto parser_value(T& value) -> decltype(std::declval<T>().emplace_back(), parser_array_t<T>(value))
+        template <typename T, typename> parser_array_t<T> parser_value(T& value)
         {
             return parser_array_t<T>(value);
         }
