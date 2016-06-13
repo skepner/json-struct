@@ -606,7 +606,7 @@ namespace json
 
             inline output& append(const char* val) { buffer.append(1, '"'); buffer.append(val); buffer.append(1, '"'); return *this; }
 
-            template <typename T> inline auto append(T val) -> decltype(value_to_string(std::declval<T>()), std::declval<output&>())
+            template <typename T, typename std::enable_if<std::is_integral<T>{} || std::is_floating_point<T>{} || std::is_convertible<T*, std::string*>{} || std::is_convertible<T*, bool*>{}>::type* = nullptr> inline output& append(T val)
                 {
                     comma(true);
                     indent_simple();

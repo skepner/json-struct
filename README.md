@@ -218,4 +218,5 @@ the json::field call if necessary:
 
 - sorting keys on parsing by their length: longer first
 - output_if_element_true
-- "  version" detection and matching
+- default getter, setter with value checking -> double_non_negative
+- "  version" detection and matching <- ?setter with value checking?
