@@ -43,6 +43,15 @@ namespace json
         {
             return tuple_tail<Skip>(std::make_index_sequence<sizeof...(Ts) - Skip>(), t);
         }
+
+          // void_t is a C++17 feature
+        template<class ...> using void_t = void; // http://stackoverflow.com/questions/26513095/void-t-can-implement-concepts
+
+          // Inspired by https://jguegant.github.io/blogs/tech/sfinae-introduction.html
+        template <typename T, typename = void> struct is_json_fields_defined : public std::false_type {};
+        template <typename T> struct is_json_fields_defined<T, void_t<decltype(json_fields(std::declval<T&>()))>> : public std::true_type {};
+        template <typename T, typename = void> struct is_emplace_back_defined : public std::false_type {};
+        template <typename T> struct is_emplace_back_defined<T, void_t<decltype(std::declval<T>().emplace_back())>> : public std::true_type {};
     }
 
       // ----------------------------------------------------------------------
@@ -314,26 +323,17 @@ namespace json
           // ----------------------------------------------------------------------
           // forward decalrations
 
-          // void_t is a C++17 feature
-        template<class ...> using void_t = void; // http://stackoverflow.com/questions/26513095/void-t-can-implement-concepts
-
-          // Inspired by https://jguegant.github.io/blogs/tech/sfinae-introduction.html
-        template <typename T, typename = void> struct is_json_fields_defined : public std::false_type {};
-        template <typename T> struct is_json_fields_defined<T, void_t<decltype(json_fields(std::declval<T&>()))>> : public std::true_type {};
-        template <typename T, typename = void> struct is_emplace_back_defined : public std::false_type {};
-        template <typename T> struct is_emplace_back_defined<T, void_t<decltype(std::declval<T>().emplace_back())>> : public std::true_type {};
-
         template <typename T> class parser_object_t;
-        template <typename T, typename std::enable_if<is_json_fields_defined<T>{}>::type* = nullptr> parser_object_t<T> parser_value(T& value);
+        template <typename T, typename std::enable_if<u::is_json_fields_defined<T>{}>::type* = nullptr> parser_object_t<T> parser_value(T& value);
 
         template <typename T> class parser_array_t;
           // Note use method for arrays only if there is no json_fields(T&) defined
-        template <typename T, typename std::enable_if<is_emplace_back_defined<T>{} && !is_json_fields_defined<T>{}>::type* = nullptr> parser_array_t<T> parser_value(T& value);
+        template <typename T, typename std::enable_if<u::is_emplace_back_defined<T>{} && !u::is_json_fields_defined<T>{}>::type* = nullptr> parser_array_t<T> parser_value(T& value);
 
         template <typename T> class parser_set_t;
-        template <typename T> auto parser_value(std::set<T>& value) -> decltype(parser_set_t<std::set<T>>(value));
+        template <typename T> auto parser_value(std::set<T>& value); // -> decltype(parser_set_t<std::set<T>>(value));
         template <typename T> class parser_map_t;
-        template <typename T> auto parser_value(std::map<std::string, T>& value) -> decltype(parser_map_t<std::map<std::string, T>>(value));
+        template <typename T> auto parser_value(std::map<std::string, T>& value); // -> decltype(parser_map_t<std::map<std::string, T>>(value));
 
           // ----------------------------------------------------------------------
 
@@ -345,6 +345,9 @@ namespace json
         inline iterator s_to_number(iterator i1, iterator i2, float& target) { std::size_t pos = 0; target = std::stof(std::string(i1, i2), &pos); return i1 + static_cast<std::string::difference_type>(pos); }
         inline iterator s_to_number(iterator i1, iterator i2, double& target) { std::size_t pos = 0; target = std::stod(std::string(i1, i2), &pos); return i1 + static_cast<std::string::difference_type>(pos); }
         inline iterator s_to_number(iterator i1, iterator i2, long double& target) { std::size_t pos = 0; target = std::stold(std::string(i1, i2), &pos); return i1 + static_cast<std::string::difference_type>(pos); }
+
+        template <typename T, typename = void> struct is_s_to_number_defined : public std::false_type {};
+        template <typename T> struct is_s_to_number_defined<T, u::void_t<decltype(s_to_number(iterator(), iterator(), std::declval<T&>()))>> : public std::true_type {};
 
         template <typename T> class parser_number_t AXE_RULE
         {
@@ -367,7 +370,8 @@ namespace json
             T& m;
         };
 
-        template <typename T> auto parser_value(T& value) -> decltype(s_to_number(iterator(), iterator(), value), parser_number_t<T>(value))
+          // template <typename T> auto parser_value(T& value) -> decltype(s_to_number(iterator(), iterator(), value), parser_number_t<T>(value))
+        template <typename T, typename std::enable_if<is_s_to_number_defined<T>{}>::type* = nullptr> auto parser_value(T& value)
         {
             return parser_number_t<T>(value);
         }
@@ -464,7 +468,7 @@ namespace json
             T& m;
         };
 
-        template <typename T, typename std::enable_if<is_json_fields_defined<T>{}>::type*> parser_object_t<T> parser_value(T& value)
+        template <typename T, typename std::enable_if<u::is_json_fields_defined<T>{}>::type*> parser_object_t<T> parser_value(T& value)
         {
             return parser_object_t<T>(value);
         }
@@ -499,7 +503,7 @@ namespace json
             virtual inline void add() const { this->m.insert(this->keep); }
         };
 
-        template <typename T> auto parser_value(std::set<T>& value) -> decltype(parser_set_t<std::set<T>>(value))
+        template <typename T> auto parser_value(std::set<T>& value) // -> decltype(parser_set_t<std::set<T>>(value))
         {
             return parser_set_t<std::set<T>>(value);
         }
@@ -512,7 +516,7 @@ namespace json
         };
 
           // Note use method for arrays only if there is no json_fields(T&) defined
-        template <typename T, typename std::enable_if<is_emplace_back_defined<T>{} && !is_json_fields_defined<T>{}>::type*> parser_array_t<T> parser_value(T& value)
+        template <typename T, typename std::enable_if<u::is_emplace_back_defined<T>{} && !u::is_json_fields_defined<T>{}>::type*> parser_array_t<T> parser_value(T& value)
         {
             return parser_array_t<T>(value);
         }
@@ -543,7 +547,7 @@ namespace json
             mutable typename T::mapped_type keep_value;
         };
 
-        template <typename T> auto parser_value(std::map<std::string, T>& value) -> decltype(parser_map_t<std::map<std::string, T>>(value))
+        template <typename T> auto parser_value(std::map<std::string, T>& value) // -> decltype(parser_map_t<std::map<std::string, T>>(value))
         {
             return parser_map_t<std::map<std::string, T>>(value);
         }
@@ -657,7 +661,8 @@ namespace json
                     return append(u::tuple_tail<2u>(val));
                 }
 
-            template <typename T> inline auto append(const T& val) -> decltype(json_fields(std::declval<T&>()), std::declval<output&>())
+              // template <typename T> inline auto append(const T& val) -> decltype(json_fields(std::declval<T&>()), std::declval<output&>())
+            template <typename T, typename std::enable_if<u::is_json_fields_defined<T>{}>::type* = nullptr> inline auto append(const T& val)
                 {
                     open('{');
                     append(json_fields(const_cast<T&>(val)));
