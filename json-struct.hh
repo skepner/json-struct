@@ -386,7 +386,7 @@ namespace json
 
         template <typename T, typename std::enable_if<std::is_floating_point<T>{}>::type* = nullptr> auto parser_value(T& value)
         {
-            return axe::r_double(value) | axe::r_fixed(value);
+            return axe::r_double(value);
         }
 
         template <typename T, typename std::enable_if<std::is_unsigned<T>{}>::type* = nullptr> auto parser_value(T& value)

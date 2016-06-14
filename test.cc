@@ -37,6 +37,11 @@ int main()
 
 void test1()
 {
+    std::string src = R"({"i": 0, "f": .1, "s": "aa", "ls": "bbb"})";
+    A a0;
+    json::parse(src, a0);
+    std::cout << json::dump(a0, 1) << std::endl;
+
     int num_elements = 5000;
 
     auto start = std::clock();
