@@ -319,6 +319,7 @@ namespace json
         const auto doublequotes = axe::r_named(axe::r_lit('"'), "doublequotes");
         const auto colon = axe::r_named(*space & axe::r_lit(':') & *space, "colon");
         const auto string_content = *("\\\"" | (axe::r_any() - axe::r_any("\"\n\r")));
+        const auto null = axe::r_lit("null");
         inline auto skey(const char* key) { return axe::r_named(axe::r_named(doublequotes & key, "object key") >= doublequotes, "object key + doublequotes") >= colon; };
 
           // ----------------------------------------------------------------------
@@ -376,9 +377,22 @@ namespace json
             return parser_number_t<T>(value);
         }
 
+        class parser_string_t AXE_RULE
+        {
+          public:
+            inline parser_string_t(std::string& v) : m(v) {}
+            inline axe::result<iterator> operator()(iterator i1, iterator i2) const
+            {
+                auto clear_target = axe::e_ref([this](auto, auto) { m.clear(); });
+                return ((doublequotes >= (string_content >> m) >= doublequotes) | (null >> clear_target))(i1, i2);
+            }
+          private:
+            std::string& m;
+        };
+
         inline auto parser_value(std::string& target)
         {
-            return doublequotes >= (string_content >> target) >= doublequotes;
+            return parser_string_t(target);
         }
 
         class parser_bool_t AXE_RULE
