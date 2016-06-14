@@ -389,7 +389,12 @@ namespace json
             return axe::r_double(value) | axe::r_fixed(value);
         }
 
-        template <typename T, typename std::enable_if<std::is_integral<T>{}>::type* = nullptr> auto parser_value(T& value)
+        template <typename T, typename std::enable_if<std::is_unsigned<T>{}>::type* = nullptr> auto parser_value(T& value)
+        {
+            return axe::r_udecimal(value);
+        }
+
+        template <typename T, typename std::enable_if<std::is_integral<T>{} && std::is_signed<T>{}>::type* = nullptr> auto parser_value(T& value)
         {
             return axe::r_decimal(value);
         }
