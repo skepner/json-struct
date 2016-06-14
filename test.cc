@@ -37,7 +37,7 @@ int main()
 
 void test1()
 {
-    int num_elements = 3000;
+    int num_elements = 5000;
 
     auto start = std::clock();
     std::vector<A> va;
@@ -55,12 +55,12 @@ void test1()
     json::parse(da, vb);
     std::cout << "parsing data " << (std::clock() - start) / double(CLOCKS_PER_SEC) << std::endl;
 
-    start = std::clock();
-    std::string db = json::dump(vb, 1);
-    std::cout << "dumping data " << (std::clock() - start) / double(CLOCKS_PER_SEC) << std::endl;
-    std::cout << "dump of " << vb.size() << ": " << db.size() << std::endl;
+    // start = std::clock();
+    // std::string db = json::dump(vb, 1);
+    // std::cout << "dumping data " << (std::clock() - start) / double(CLOCKS_PER_SEC) << std::endl;
+    // std::cout << "dump of " << vb.size() << ": " << db.size() << std::endl;
 
-    assert(da == db);
+    // assert(da == db);
 }
 
 // ----------------------------------------------------------------------

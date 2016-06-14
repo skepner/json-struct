@@ -703,7 +703,7 @@ namespace json
                     return append(u::tuple_tail<2u>(val));
                 }
 
-            template <typename T, typename std::enable_if<u::is_json_fields_defined<T>{}>::type* = nullptr> inline auto append(const T& val)
+            template <typename T, typename std::enable_if<u::is_json_fields_defined<T>{}>::type* = nullptr> inline output& append(const T& val)
                 {
                     open('{');
                     append(json_fields(const_cast<T&>(val)));
