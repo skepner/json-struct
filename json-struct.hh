@@ -339,43 +339,62 @@ namespace json
 
           // ----------------------------------------------------------------------
 
-        inline iterator s_to_number(iterator i1, iterator i2, int& target) { std::size_t pos = 0; target = std::stoi(std::string(i1, i2), &pos, 0); return i1 + static_cast<std::string::difference_type>(pos); }
-        inline iterator s_to_number(iterator i1, iterator i2, long& target) { std::size_t pos = 0; target = std::stol(std::string(i1, i2), &pos, 0); return i1 + static_cast<std::string::difference_type>(pos); }
-        inline iterator s_to_number(iterator i1, iterator i2, long long& target) { std::size_t pos = 0; target = std::stoll(std::string(i1, i2), &pos, 0); return i1 + static_cast<std::string::difference_type>(pos); }
-        inline iterator s_to_number(iterator i1, iterator i2, unsigned long& target) { std::size_t pos = 0; target = std::stoul(std::string(i1, i2), &pos, 0); return i1 + static_cast<std::string::difference_type>(pos); }
-        inline iterator s_to_number(iterator i1, iterator i2, unsigned long long& target) { std::size_t pos = 0; target = std::stoull(std::string(i1, i2), &pos, 0); return i1 + static_cast<std::string::difference_type>(pos); }
-        inline iterator s_to_number(iterator i1, iterator i2, float& target) { std::size_t pos = 0; target = std::stof(std::string(i1, i2), &pos); return i1 + static_cast<std::string::difference_type>(pos); }
-        inline iterator s_to_number(iterator i1, iterator i2, double& target) { std::size_t pos = 0; target = std::stod(std::string(i1, i2), &pos); return i1 + static_cast<std::string::difference_type>(pos); }
-        inline iterator s_to_number(iterator i1, iterator i2, long double& target) { std::size_t pos = 0; target = std::stold(std::string(i1, i2), &pos); return i1 + static_cast<std::string::difference_type>(pos); }
+        // inline iterator s_to_number(iterator i1, iterator i2, int& target) { std::size_t pos = 0; target = std::stoi(std::string(i1, i2), &pos, 0); return i1 + static_cast<std::string::difference_type>(pos); }
+        // inline iterator s_to_number(iterator i1, iterator i2, long& target) { std::size_t pos = 0; target = std::stol(std::string(i1, i2), &pos, 0); return i1 + static_cast<std::string::difference_type>(pos); }
+        // inline iterator s_to_number(iterator i1, iterator i2, long long& target) { std::size_t pos = 0; target = std::stoll(std::string(i1, i2), &pos, 0); return i1 + static_cast<std::string::difference_type>(pos); }
+        // inline iterator s_to_number(iterator i1, iterator i2, unsigned long& target) { std::size_t pos = 0; target = std::stoul(std::string(i1, i2), &pos, 0); return i1 + static_cast<std::string::difference_type>(pos); }
+        // inline iterator s_to_number(iterator i1, iterator i2, unsigned long long& target) { std::size_t pos = 0; target = std::stoull(std::string(i1, i2), &pos, 0); return i1 + static_cast<std::string::difference_type>(pos); }
+        // inline iterator s_to_number(iterator i1, iterator i2, float& target) { std::size_t pos = 0; target = std::stof(std::string(i1, i2), &pos); return i1 + static_cast<std::string::difference_type>(pos); }
+        // inline iterator s_to_number(iterator i1, iterator i2, double& target) { std::size_t pos = 0; target = std::stod(std::string(i1, i2), &pos); return i1 + static_cast<std::string::difference_type>(pos); }
+        // inline iterator s_to_number(iterator i1, iterator i2, long double& target) { std::size_t pos = 0; target = std::stold(std::string(i1, i2), &pos); return i1 + static_cast<std::string::difference_type>(pos); }
 
-        template <typename T, typename = void> struct is_s_to_number_defined : public std::false_type {};
-        template <typename T> struct is_s_to_number_defined<T, u::void_t<decltype(s_to_number(iterator(), iterator(), std::declval<T&>()))>> : public std::true_type {};
+        // template <typename T, typename = void> struct is_s_to_number_defined : public std::false_type {};
+        // template <typename T> struct is_s_to_number_defined<T, u::void_t<decltype(s_to_number(iterator(), iterator(), std::declval<T&>()))>> : public std::true_type {};
 
-        template <typename T> class parser_number_t AXE_RULE
+        // template <typename T> class parser_number_t AXE_RULE
+        // {
+        //   public:
+        //     inline parser_number_t(T& v) : m(v) {}
+        //     inline axe::result<iterator> operator()(iterator i1, iterator i2) const
+        //     {
+        //         int t;
+        //         auto r = axe::r_decimal(t)(i1, i2);
+        //         m = static_cast<T>(t);
+        //         return r;
+
+        //         // try {
+        //         //     const auto end = s_to_number(i1, i2, m);
+        //         //     return axe::make_result(end > i1, end, i1);
+        //         // }
+        //         // catch (std::invalid_argument&) {
+        //         //     return axe::make_result(false, i1);
+        //         // }
+        //         // catch (std::out_of_range&) {
+        //         //     axe::throw_failure("out of range", i1, i2);
+        //         // }
+        //     }
+        //   private:
+        //     T& m;
+        // };
+
+        // template <typename T, typename std::enable_if<is_s_to_number_defined<T>{}>::type* = nullptr> auto parser_value(T& value)
+        // {
+        //     return parser_number_t<T>(value);
+        // }
+
+          // ----------------------------------------------------------------------
+
+        template <typename T, typename std::enable_if<std::is_floating_point<T>{}>::type* = nullptr> auto parser_value(T& value)
         {
-          public:
-            inline parser_number_t(T& v) : m(v) {}
-            inline axe::result<iterator> operator()(iterator i1, iterator i2) const
-            {
-                try {
-                    const auto end = s_to_number(i1, i2, m);
-                    return axe::make_result(end > i1, end, i1);
-                }
-                catch (std::invalid_argument&) {
-                    return axe::make_result(false, i1);
-                }
-                catch (std::out_of_range&) {
-                    axe::throw_failure("out of range", i1, i2);
-                }
-            }
-          private:
-            T& m;
-        };
-
-        template <typename T, typename std::enable_if<is_s_to_number_defined<T>{}>::type* = nullptr> auto parser_value(T& value)
-        {
-            return parser_number_t<T>(value);
+            return axe::r_double(value) | axe::r_fixed(value);
         }
+
+        template <typename T, typename std::enable_if<std::is_integral<T>{}>::type* = nullptr> auto parser_value(T& value)
+        {
+            return axe::r_decimal(value);
+        }
+
+          // ----------------------------------------------------------------------
 
         class parser_string_t AXE_RULE
         {

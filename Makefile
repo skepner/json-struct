@@ -23,6 +23,7 @@ endif
 # OPTIMIZATION = -O3
 CXXFLAGS = -MMD -g $(OPTIMIZATION) -fPIC -std=$(STD) $(WEVERYTHING) $(WARNINGS) -Iaxe/include
 LDFLAGS =
+TEST_LDLIBS = # -L/usr/local/lib -lprofiler
 
 # ----------------------------------------------------------------------
 
@@ -36,7 +37,7 @@ all: test
 # ----------------------------------------------------------------------
 
 test: $(DIST)/test
-	$(DIST)/test
+	gtime $(DIST)/test
 
 $(DIST)/test: $(BUILD)/test.o | $(DIST)
 	g++ $(LDFLAGS) -o $@ $^ $(TEST_LDLIBS)
@@ -50,8 +51,8 @@ distclean: clean
 # ----------------------------------------------------------------------
 
 $(BUILD)/%.o: %.cc | $(BUILD)
-	@echo $<
-	@g++ $(CXXFLAGS) -c -o $@ $<
+	@#echo $<
+	g++ $(CXXFLAGS) -c -o $@ $<
 
 # ----------------------------------------------------------------------
 
