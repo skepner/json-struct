@@ -480,6 +480,7 @@ namespace json
         template <typename T> class parser_list_t AXE_RULE
         {
           public:
+            typedef typename T::value_type item_type;
             inline parser_list_t(T& v) : m(v) {}
             inline parser_list_t(const parser_list_t<T>& v) = default;
             virtual inline ~parser_list_t() = default;
@@ -488,12 +489,13 @@ namespace json
             {
                 auto clear_target = axe::e_ref([this](auto, auto) { m.clear(); });
                 auto insert_item = axe::e_ref([this](auto, auto) { add(); });
-                auto item = parser_value(keep) >> insert_item;
+                auto clear_item = axe::e_ref([this](auto, auto) { this->keep = item_type(); });
+                auto item = (axe::r_empty() >> clear_item) & (parser_value(keep) >> insert_item);
                 return ((array_begin >> clear_target) >= ~( item & *(comma >= item) ) >= array_end)(i1, i2);
             }
           protected:
             T& m;
-            mutable typename T::value_type keep;
+            mutable item_type keep;
         };
 
         template <typename T> class parser_set_t : public parser_list_t<T>
