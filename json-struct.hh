@@ -535,18 +535,20 @@ namespace json
         template <typename T> class parser_map_t AXE_RULE
         {
           public:
+            typedef typename T::mapped_type item_type;
             inline parser_map_t(T& v) : m(v) {}
             inline axe::result<iterator> operator()(iterator i1, iterator i2) const
             {
                 auto clear_target = axe::e_ref([this](auto, auto) { m.clear(); });
                 auto insert_item = axe::e_ref([this](auto, auto) { return m.insert(std::make_pair(keep_key, keep_value)); });
-                auto item = parser_map_item(keep_key, keep_value) >> insert_item;
+                auto clear_item = axe::e_ref([this](auto, auto) { this->keep_value = item_type(); });
+                auto item = (axe::r_empty() >> clear_item) & (parser_map_item(keep_key, keep_value) >> insert_item);
                 return ((object_begin >> clear_target) >= ~( item & *(comma >= item) ) >= object_end)(i1, i2);
             }
           private:
             T& m;
             mutable std::string keep_key;
-            mutable typename T::mapped_type keep_value;
+            mutable item_type keep_value;
         };
 
         template <typename T> auto parser_value(std::map<std::string, T>& value)
