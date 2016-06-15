@@ -1,6 +1,11 @@
 # json-struct
 C++14 json serialising header-only library for C++ classes
 
+## Requirements:
+
+- macOS: clang 7.3
+- Linux: gcc 5.3 or 6.1 (gcc 4.9 is not supported)
+
 ## Dependencies:
 
 [AXE](https://github.com/skepner/axe)

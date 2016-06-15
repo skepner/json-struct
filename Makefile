@@ -37,7 +37,7 @@ all: test
 # ----------------------------------------------------------------------
 
 test: $(DIST)/test
-	gtime $(DIST)/test
+	time $(DIST)/test
 
 $(DIST)/test: $(BUILD)/test.o | $(DIST)
 	g++ $(LDFLAGS) -o $@ $^ $(TEST_LDLIBS)

@@ -525,8 +525,8 @@ namespace json
             virtual void add() const = 0;
             inline axe::result<iterator> operator()(iterator i1, iterator i2) const
             {
-                auto clear_target = axe::e_ref([this](auto, auto) { m.clear(); });
-                auto insert_item = axe::e_ref([this](auto, auto) { add(); });
+                auto clear_target = axe::e_ref([this](auto, auto) { this->m.clear(); });
+                auto insert_item = axe::e_ref([this](auto, auto) { this->add(); });
                 auto clear_item = axe::e_ref([this](auto, auto) { this->keep = item_type(); });
                 auto item = (axe::r_empty() >> clear_item) & (parser_value(keep) >> insert_item);
                 return ((array_begin >> clear_target) >= ~( item & *(comma >= item) ) >= array_end)(i1, i2);
@@ -649,10 +649,10 @@ namespace json
 
             inline void comma(bool ic) { if (insert_comma) add_comma(); insert_comma = ic; }
             virtual inline void add_comma() { buffer.append(1, ','); }
-            virtual inline void indent_simple() = 0;
-            virtual inline void indent_extend() = 0;
-            virtual inline void indent_reduce() = 0;
-            virtual inline void no_indent() = 0;
+            virtual void indent_simple() = 0;
+            virtual void indent_extend() = 0;
+            virtual void indent_reduce() = 0;
+            virtual void no_indent() = 0;
 
          public:
             inline output() : insert_comma(false) {}
@@ -672,6 +672,11 @@ namespace json
                     buffer.append(value_to_string(val));
                     return *this;
                 }
+
+            // template <typename T, typename std::enable_if<std::is_integral<T>{} || std::is_floating_point<T>{} || std::is_convertible<T*, std::string*>{} || std::is_convertible<T*, bool*>{}>::type* = nullptr> inline output& append(const T& val)
+            //     {
+            //         return append(static_cast<typename std::remove_reference<T>::type>(val));
+            //     }
 
             template <typename T> inline output& append(const char* key, const T& val)
                 {
