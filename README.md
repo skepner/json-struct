@@ -224,16 +224,19 @@ the json::field call if necessary:
 If elements of an array (std::vector, std::set, etc.) are objects of a
 type for which json\_fields() defined, some of those elements could be
 prevented from appearing in the output. To prevent writing
-json\_fields() should throw json::no_value():
+json\_fields() should throw json::no_value(). Note in that case
+json\_fields must accept the second argument of type bool telling if
+that function was called for output. Throwing json::no\_value inside
+the parsing stage leads to parsing failure.
 
     class A
     {
      public:
         int i;
 
-        friend inline auto json_fields(A& a)
+        friend inline auto json_fields(A& a, bool for_output)
             {
-                if (a.i % 2)
+                if (for_output && a.i % 2)
                     throw json::no_value();
                 return std::make_tuple("i", &a.i);
             }
@@ -244,6 +247,5 @@ json\_fields() should throw json::no_value():
 # TODO
 
 - sorting keys on parsing by their length: longer first
-- output_if_element_true
 - default getter, setter with value checking -> double_non_negative
 - "  version" detection and matching <- ?setter with value checking?

@@ -32,6 +32,20 @@ namespace json
         using std::runtime_error::runtime_error;
     };
 
+    class no_value : public std::exception
+    {
+     public:
+        using std::exception::exception;
+    };
+
+    enum output_only_t { output_only };
+    enum output_only_if_true_t { output_only_if_true };
+    enum output_only_if_not_empty_t { output_only_if_not_empty };
+    enum output_if_true_t { output_if_true };
+    enum output_if_not_empty_t { output_if_not_empty };
+
+      // ----------------------------------------------------------------------
+
     namespace u
     {
         template <std::size_t Skip, std::size_t... Ns, typename... Ts> inline auto tuple_tail(std::index_sequence<Ns...>, std::tuple<Ts...>& t)
@@ -50,24 +64,37 @@ namespace json
           // Inspired by https://jguegant.github.io/blogs/tech/sfinae-introduction.html
         template <typename T, typename = void> struct is_json_fields_defined : public std::false_type {};
         template <typename T> struct is_json_fields_defined<T, void_t<decltype(json_fields(std::declval<T&>()))>> : public std::true_type {};
+        template <typename T, typename = void> struct is_json_fields_bool_defined : public std::false_type {};
+        template <typename T> struct is_json_fields_bool_defined<T, void_t<decltype(json_fields(std::declval<T&>(), std::declval<bool>()))>> : public std::true_type {};
+
+        template <typename T, typename std::enable_if<u::is_json_fields_defined<T>{}>::type* = nullptr> auto call_json_fields(T& obj, bool for_output)
+        {
+            try {
+                return json_fields(obj);
+            }
+            catch (no_value&) {
+                if (for_output)
+                    throw;
+                else
+                    throw parsing_error(std::string("json::no_value were thrown by json_fields for type ") + typeid(T).name() + ", json_fields must be defined with the second (bool) argument and do not throw in it false");
+            }
+        }
+        template <typename T, typename std::enable_if<u::is_json_fields_bool_defined<T>{}>::type* = nullptr> auto call_json_fields(T& obj, bool for_output)
+        {
+            try {
+                return json_fields(obj, for_output);
+            }
+            catch (no_value&) {
+                if (for_output)
+                    throw;
+                else
+                    throw parsing_error(std::string("json::no_value were thrown by json_fields for type ") + typeid(T).name() + " on parsing.");
+            }
+        }
 
         template <typename T, typename = void> struct is_emplace_back_defined : public std::false_type {};
         template <typename T> struct is_emplace_back_defined<T, void_t<decltype(std::declval<T>().emplace_back())>> : public std::true_type {};
     }
-
-      // ----------------------------------------------------------------------
-
-    class no_value : public std::exception
-    {
-     public:
-        using std::exception::exception;
-    };
-
-    enum output_only_t { output_only };
-    enum output_only_if_true_t { output_only_if_true };
-    enum output_only_if_not_empty_t { output_only_if_not_empty };
-    enum output_if_true_t { output_if_true };
-    enum output_if_not_empty_t { output_if_not_empty };
 
       // ----------------------------------------------------------------------
 
@@ -326,11 +353,11 @@ namespace json
           // forward decalrations
 
         template <typename T> class parser_object_t;
-        template <typename T, typename std::enable_if<u::is_json_fields_defined<T>{}>::type* = nullptr> parser_object_t<T> parser_value(T& value);
+        template <typename T, typename std::enable_if<u::is_json_fields_defined<T>{} || u::is_json_fields_bool_defined<T>{}>::type* = nullptr> parser_object_t<T> parser_value(T& value);
 
         template <typename T> class parser_array_t;
           // Note use method for arrays only if there is no json_fields(T&) defined
-        template <typename T, typename std::enable_if<u::is_emplace_back_defined<T>{} && !u::is_json_fields_defined<T>{}>::type* = nullptr> parser_array_t<T> parser_value(T& value);
+        template <typename T, typename std::enable_if<u::is_emplace_back_defined<T>{} && !u::is_json_fields_defined<T>{} && !u::is_json_fields_bool_defined<T>{}>::type* = nullptr> parser_array_t<T> parser_value(T& value);
 
         template <typename T> class parser_set_t;
         template <typename T> auto parser_value(std::set<T>& value);
@@ -499,14 +526,14 @@ namespace json
             inline parser_object_t(T& v) : m(v) {}
             inline axe::result<iterator> operator()(iterator i1, iterator i2) const
             {
-                auto item = make_items_parser_tuple(json_fields(m));
+                auto item = make_items_parser_tuple(u::call_json_fields(m, false));
                 return (object_begin >= ~( item & *(comma >= item) ) >= object_end)(i1, i2);
             }
           private:
             T& m;
         };
 
-        template <typename T, typename std::enable_if<u::is_json_fields_defined<T>{}>::type*> parser_object_t<T> parser_value(T& value)
+        template <typename T, typename std::enable_if<u::is_json_fields_defined<T>{} || u::is_json_fields_bool_defined<T>{}>::type*> parser_object_t<T> parser_value(T& value)
         {
             return parser_object_t<T>(value);
         }
@@ -556,7 +583,7 @@ namespace json
         };
 
           // Note use method for arrays only if there is no json_fields(T&) defined
-        template <typename T, typename std::enable_if<u::is_emplace_back_defined<T>{} && !u::is_json_fields_defined<T>{}>::type*> parser_array_t<T> parser_value(T& value)
+        template <typename T, typename std::enable_if<u::is_emplace_back_defined<T>{} && !u::is_json_fields_defined<T>{} && !u::is_json_fields_bool_defined<T>{}>::type*> parser_array_t<T> parser_value(T& value)
         {
             return parser_array_t<T>(value);
         }
@@ -713,17 +740,19 @@ namespace json
                     return append(u::tuple_tail<2u>(val));
                 }
 
-            template <typename T, typename std::enable_if<u::is_json_fields_defined<T>{}>::type* = nullptr> inline output& append(const T& val)
+            template <typename T, typename std::enable_if<u::is_json_fields_defined<T>{} || u::is_json_fields_bool_defined<T>{}>::type* = nullptr> inline output& append(const T& val)
                 {
                     const auto pos = tell();
+                    const auto comma_state = insert_comma;
                     open('{');
                     try {
-                        append(json_fields(const_cast<T&>(val)));
+                        append(u::call_json_fields(const_cast<T&>(val), true));
                         close('}');
                     }
                     catch (no_value&) { // json_fields thrown no_value, it means val should not appear in the output
                         close('}');     // restore indentation state
                         discard_after(pos); // discard whatever has been written
+                        insert_comma = comma_state;
                     }
                     return *this;
                 }
