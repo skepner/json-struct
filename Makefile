@@ -30,16 +30,22 @@ TEST_LDLIBS = # -L/usr/local/lib -lprofiler
 BUILD = build
 DIST = dist
 
-all: test
+all: test-partial-array-output
 
 -include $(BUILD)/*.d
 
 # ----------------------------------------------------------------------
 
-test: $(DIST)/test
-	time $(DIST)/test
+test-small: $(DIST)/test-small
+	time $^
 
-$(DIST)/test: $(BUILD)/test.o | $(DIST)
+test-many-big-elements: $(DIST)/test-many-big-elements
+	time $^
+
+test-partial-array-output: $(DIST)/test-partial-array-output
+	time $^
+
+$(DIST)/%: $(BUILD)/%.o | $(DIST)
 	g++ $(LDFLAGS) -o $@ $^ $(TEST_LDLIBS)
 
 clean:

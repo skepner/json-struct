@@ -11,7 +11,7 @@ class A
 {
  public:
     inline A() : i(0) {}
-    inline A(int aI) : i(aI), f(aI ? 1.0 / double(aI) : -0.3456), s(std::to_string(aI)), ls(10, '-') {}
+    inline A(int aI) : i(aI), f(aI ? 1.0 / double(aI) : -0.3456), s(std::to_string(aI)), ls(5000, '-') {}
 
     int i;
     double f;
@@ -42,7 +42,7 @@ void test1()
     // json::parse(src, a0);
     // std::cout << json::dump(a0, 1) << std::endl;
 
-    int num_elements = 5;
+    int num_elements = 5000;
 
     auto start = std::clock();
     std::vector<A> va;

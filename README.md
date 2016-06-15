@@ -219,6 +219,28 @@ the json::field call if necessary:
     json::field(&a.f, &F::getter, json::output_if_true)
     json::field(&a.f, &F::getter, json::output_if_not_empty)
 
+### Avoid outputing some of the elements of an array
+
+If elements of an array (std::vector, std::set, etc.) are objects of a
+type for which json\_fields() defined, some of those elements could be
+prevented from appearing in the output. To prevent writing
+json\_fields() should throw json::no_value():
+
+    class A
+    {
+     public:
+        int i;
+
+        friend inline auto json_fields(A& a)
+            {
+                if (a.i % 2)
+                    throw json::no_value();
+                return std::make_tuple("i", &a.i);
+            }
+    };
+
+
+
 # TODO
 
 - sorting keys on parsing by their length: longer first

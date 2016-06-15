@@ -57,7 +57,7 @@ namespace json
 
       // ----------------------------------------------------------------------
 
-    class _no_value : public std::exception
+    class no_value : public std::exception
     {
      public:
         using std::exception::exception;
@@ -77,7 +77,7 @@ namespace json
         typedef typename G::result_type value_type;
         inline field_t(G&& aG, S&& aS, P&& aPredicate) : mG(aG), mS(aS), mPredicate(aPredicate) {}
 
-        inline value_type get() const { if (!mPredicate()) throw _no_value(); return mG(); }
+        inline value_type get() const { if (!mPredicate()) throw no_value(); return mG(); }
         inline S& setter() { return mS; }
 
      private:
@@ -654,6 +654,11 @@ namespace json
             virtual void indent_reduce() = 0;
             virtual void no_indent() = 0;
 
+              // current position in the output stream
+            inline auto tell() const { return buffer.size(); }
+              // discard everything appended after the position (obtained via tell() earlier)
+            inline void discard_after(std::string::size_type pos) { buffer.erase(pos); }
+
          public:
             inline output() : insert_comma(false) {}
             inline output(const output&) = default;
@@ -710,9 +715,17 @@ namespace json
 
             template <typename T, typename std::enable_if<u::is_json_fields_defined<T>{}>::type* = nullptr> inline output& append(const T& val)
                 {
+                    const auto pos = tell();
                     open('{');
-                    append(json_fields(const_cast<T&>(val)));
-                    return close('}');
+                    try {
+                        append(json_fields(const_cast<T&>(val)));
+                        close('}');
+                    }
+                    catch (no_value&) { // json_fields thrown no_value, it means val should not appear in the output
+                        close('}');     // restore indentation state
+                        discard_after(pos); // discard whatever has been written
+                    }
+                    return *this;
                 }
 
               // ---- vector, list, set ------------------------------------------------------------------
@@ -790,9 +803,9 @@ namespace json
             template <typename G, typename S, typename P> inline output& append(const char* key, const field_t<G, S, P>& val)
                 {
                     try {
-                        return append(key, val.get()); // val.get() may throw _no_value
+                        return append(key, val.get()); // val.get() may throw no_value
                     }
-                    catch (_no_value&) {
+                    catch (no_value&) {
                         return *this; // avoid writing key/value pair
                     }
                 }
