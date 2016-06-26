@@ -30,7 +30,7 @@ TEST_LDLIBS = # -L/usr/local/lib -lprofiler
 BUILD = build
 DIST = dist
 
-all: test-partial-array-output
+all: test-nan
 
 -include $(BUILD)/*.d
 
@@ -43,6 +43,9 @@ test-many-big-elements: $(DIST)/test-many-big-elements
 	time $^
 
 test-partial-array-output: $(DIST)/test-partial-array-output
+	time $^
+
+test-nan: $(DIST)/test-nan
 	time $^
 
 $(DIST)/%: $(BUILD)/%.o | $(DIST)

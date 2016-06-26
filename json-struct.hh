@@ -13,6 +13,7 @@
 #include <set>
 #include <map>
 #include <functional>
+#include <cmath>
 
 #include "axe.h"
 
@@ -413,7 +414,8 @@ namespace json
 
         template <typename T, typename std::enable_if<std::is_floating_point<T>{}>::type* = nullptr> auto parser_value(T& value)
         {
-            return axe::r_double(value);
+            auto set_nan = axe::e_ref([&value](auto, auto) { value = std::numeric_limits<T>::quiet_NaN(); });
+            return axe::r_double(value) | (null >> set_nan);
         }
 
         template <typename T, typename std::enable_if<std::is_unsigned<T>{}>::type* = nullptr> auto parser_value(T& value)
@@ -646,9 +648,14 @@ namespace json
 
         template <typename T> inline typename std::enable_if<std::is_floating_point<T>::value, std::string>::type value_to_string(T val)
         {
-            std::ostringstream s;
-            s << std::setprecision(std::numeric_limits<T>::max_digits10) << val;
-            return s.str();
+            if (std::isnan(val)) {
+                return "null";
+            }
+            else {
+                std::ostringstream s;
+                s << std::setprecision(std::numeric_limits<T>::max_digits10) << val;
+                return s.str();
+            }
         }
 
         template <typename T> inline typename std::enable_if<std::is_integral<T>::value, std::string>::type value_to_string(T val)
