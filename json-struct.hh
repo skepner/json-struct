@@ -412,10 +412,22 @@ namespace json
 
           // ----------------------------------------------------------------------
 
+        template <typename T> class parser_float_t AXE_RULE
+        {
+          public:
+            inline parser_float_t(T& v) : m(v) {}
+            inline axe::result<iterator> operator()(iterator i1, iterator i2) const
+            {
+                auto set_nan = axe::e_ref([this](auto, auto) { m = std::numeric_limits<T>::quiet_NaN(); });
+                return (axe::r_double(m) | (null >> set_nan))(i1, i2);
+            }
+          private:
+            T& m;
+        };
+
         template <typename T, typename std::enable_if<std::is_floating_point<T>{}>::type* = nullptr> auto parser_value(T& value)
         {
-            auto set_nan = axe::e_ref([&value](auto, auto) { value = std::numeric_limits<T>::quiet_NaN(); });
-            return axe::r_double(value) | (null >> set_nan);
+            return parser_float_t<T>(value);
         }
 
         template <typename T, typename std::enable_if<std::is_unsigned<T>{}>::type* = nullptr> auto parser_value(T& value)
