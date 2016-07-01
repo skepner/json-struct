@@ -118,7 +118,6 @@ namespace json
       // --------------------
 
     inline bool _predicate_always() { return true; }
-    inline bool _predicate_never() { return false; }
 
     template <typename T> class _predicate_if_true
     {
@@ -148,6 +147,14 @@ namespace json
         inline const T& operator()() const { return *mField; }
      private:
         const T* mField;
+    };
+
+    template <typename T> class _no_getter
+    {
+     public:
+        typedef T result_type;
+        inline _no_getter() {}
+        inline const T& operator()() const { throw no_value(); }
     };
 
     template <typename T> class _default_setter
@@ -194,7 +201,7 @@ namespace json
       // default setter, no output
     template <typename T> inline auto field(T* field, output_never_t)
     {
-        return _field_t_make(_default_getter<T>(field), _default_setter<T>(field), &_predicate_never);
+        return _field_t_make(_no_getter<T>(), _default_setter<T>(field));
     }
 
       // --------------------
@@ -275,7 +282,7 @@ namespace json
       // provided setter, no output
     template <typename T, typename GF, typename SF> inline auto field(T* field, SF aSetter, output_never_t)
     {
-        return _field_t_make(_default_getter<T>(field), std::bind(aSetter, field, std::placeholders::_1), &_predicate_never);
+        return _field_t_make(_no_getter<T>(), std::bind(aSetter, field, std::placeholders::_1));
     }
 
       // ----------------------------------------------------------------------
