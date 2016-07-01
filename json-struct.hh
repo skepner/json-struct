@@ -43,6 +43,7 @@ namespace json
     enum output_only_if_true_t { output_only_if_true };
     enum output_only_if_not_empty_t { output_only_if_not_empty };
     enum output_if_true_t { output_if_true };
+    enum output_never_t { output_never };
     enum output_if_not_empty_t { output_if_not_empty };
 
       // ----------------------------------------------------------------------
@@ -117,6 +118,7 @@ namespace json
       // --------------------
 
     inline bool _predicate_always() { return true; }
+    inline bool _predicate_never() { return false; }
 
     template <typename T> class _predicate_if_true
     {
@@ -187,6 +189,12 @@ namespace json
     template <typename T> inline auto field(T* field, output_if_not_empty_t)
     {
         return _field_t_make(_default_getter<T>(field), _default_setter<T>(field), _predicate_if_not_empty<T>(field));
+    }
+
+      // default setter, no output
+    template <typename T> inline auto field(T* field, output_never_t)
+    {
+        return _field_t_make(_default_getter<T>(field), _default_setter<T>(field), &_predicate_never);
     }
 
       // --------------------
@@ -262,6 +270,12 @@ namespace json
     template <typename T, typename GF, typename SF> inline auto field(T* field, GF aGetter, SF aSetter, output_if_not_empty_t)
     {
         return _field_t_make(std::bind(aGetter, field), std::bind(aSetter, field, std::placeholders::_1), _predicate_if_not_empty<T>(field));
+    }
+
+      // provided setter, no output
+    template <typename T, typename GF, typename SF> inline auto field(T* field, SF aSetter, output_never_t)
+    {
+        return _field_t_make(_default_getter<T>(field), std::bind(aSetter, field, std::placeholders::_1), &_predicate_never);
     }
 
       // ----------------------------------------------------------------------
