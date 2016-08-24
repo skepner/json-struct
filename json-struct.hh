@@ -665,7 +665,13 @@ namespace json
             }
             else {
                 std::ostringstream s;
-                s << std::setprecision(std::numeric_limits<T>::max_digits10) << val;
+                for (auto prec = std::numeric_limits<T>::max_digits10; prec > 6; --prec) {
+                    s.str("");
+                    s << std::setprecision(prec) << val;
+                    const auto ss = s.str();
+                    if (ss.find('e') != ss.npos || ss.find('E') != ss.npos || (ss.size() > 5 && ss.substr(ss.size() - 5, 4) != "0000" && ss.substr(ss.size() - 4) != "9999"))
+                        return ss;
+                }
                 return s.str();
             }
         }
